@@ -1,0 +1,1 @@
+{"reExports":[],"name":"Ado","comments":null,"declarations":[{"children":[],"comments":null,"title":"test","info":{"declType":"value","type":{"annotation":[],"tag":"TypeConstructor","contents":[["Prim"],"Int"]}},"sourceSpan":{"start":[4,1],"name":"/home/harry/code/purescript/tests/purs/docs/src/Ado.purs","end":[9,16]}}]}

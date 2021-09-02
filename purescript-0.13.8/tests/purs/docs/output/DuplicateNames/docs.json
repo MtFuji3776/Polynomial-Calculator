@@ -1,0 +1,1 @@
+{"reExports":[],"name":"DuplicateNames","comments":null,"declarations":[{"children":[],"comments":null,"title":"unit","info":{"declType":"value","type":{"annotation":[],"tag":"TypeConstructor","contents":[["Prim"],"Int"]}},"sourceSpan":{"start":[8,1],"name":"/home/harry/code/purescript/tests/purs/docs/src/DuplicateNames.purs","end":[8,12]}}]}

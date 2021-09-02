@@ -1,0 +1,1 @@
+{"reExports":[],"name":"Transitive3","comments":null,"declarations":[{"children":[],"comments":null,"title":"transitive3","info":{"declType":"value","type":{"annotation":[],"tag":"TypeConstructor","contents":[["Prim"],"Int"]}},"sourceSpan":{"start":[3,1],"name":"/home/harry/code/purescript/tests/purs/docs/src/Transitive3.purs","end":[3,19]}}]}

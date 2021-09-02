@@ -1,0 +1,1 @@
+{"reExports":[],"name":"UTF8","comments":null,"declarations":[{"children":[],"comments":"üÜäÄ 😰\n","title":"thing","info":{"declType":"value","type":{"annotation":[],"tag":"TypeConstructor","contents":[["Prelude"],"Unit"]}},"sourceSpan":{"start":[6,1],"name":"/home/harry/code/purescript/tests/purs/docs/src/UTF8.purs","end":[6,14]}}]}

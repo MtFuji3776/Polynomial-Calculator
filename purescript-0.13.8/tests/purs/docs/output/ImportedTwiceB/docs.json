@@ -1,0 +1,1 @@
+{"reExports":[],"name":"ImportedTwiceB","comments":null,"declarations":[{"children":[],"comments":null,"title":"foo","info":{"declType":"value","type":{"annotation":[],"tag":"TypeConstructor","contents":[["Prim"],"Int"]}},"sourceSpan":{"start":[3,1],"name":"/home/harry/code/purescript/tests/purs/docs/src/ImportedTwiceB.purs","end":[3,11]}}]}
