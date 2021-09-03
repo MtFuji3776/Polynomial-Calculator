@@ -6,7 +6,7 @@ import Data.Maybe
 import Data.Ring
 import Data.Semiring
 import Data.Tuple
-
+import Data.HeytingAlgebra
 import Data.Array ((:), head, zipWith, tail)
 import Data.Foldable (foldr)
 import Data.Map (Map, toUnfoldable)
@@ -94,10 +94,10 @@ instance showPoly :: Show Poly where
     show (Poly m) =
         let l = map show m
             drawblock x y 
-                | x == "" = y
-                | y == "" = x
-                | otherwise = x <> " + " <> y
-            xs = foldr drawblock "" l
+                | not(x == "" || y == "") = x <> " + " <> y
+                | x == "" || y == ""      = x <> y
+                | otherwise               = ""
+            xs = foldr drawblock " " l
         in xs
 
 -- purescriptのData.MapにはinsertWithが存在しないので自作
@@ -111,11 +111,19 @@ insertWith f k v m
 
 multiplePoly :: Poly -> Poly -> Poly
 multiplePoly (Poly m1) (Poly m2) = 
-    let f :: M.Map Variables Unit -> Array Unit
-        f m = map snd $ toUnfoldable m
-        l1 = f m1
-        l2 = f m2
-        l  = map (\(Unit vs c) -> Tuple vs (Unit vs c)) $ multipleUnits <$> l1 <*> l2
+    let distribute :: Map Variables Unit -> Map Variables Unit -> Map Variables Unit
+        distribute m1 m2 -- 展開公式に相当する。m1の各要素をm2の全ての要素に対してmultipleUnitsする関数。
+            | M.isEmpty m1 = m2
+            | otherwise    =   
+                let getMin :: Map Variables Unit -> {key :: Variables,value :: Unit}
+                    getMin  m = fromMaybe {key: M.empty,value: Unit M.empty 0} $ M.findMin m
+                    ku   = getMin m1
+                    k    = _.key ku
+                    u    = _.value ku
+                    m2' = map (multipleUnits u) m2 
+                    m1' = M.delete k m1 
+                in M.union m2' $ distribute m1' m2
+        l  = toUnfoldable $ distribute m1 m2
         reduction :: Array (Tuple Variables Unit) -> Poly -> Poly
         reduction [] (Poly m3)     = Poly m3
         reduction xs (Poly m3) = 
