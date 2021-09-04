@@ -14,6 +14,24 @@ import CSS.TextAlign as TA
 import CSS.Flexbox as F
 import CSS.Property(Prefixed(..),Value(..))
 
+
+expo :: CSS
+expo = do
+    mainContent
+    headFoot
+    foot
+    mainMain
+    contentArea
+    displayArea
+    numDisplay
+    howcalDisplay
+    clickArea
+    operator
+    divClassRow
+    clickOperaBtn
+    clickOperaRowBtn
+    clickOperaBtnAct
+
 mainContent :: CSS
 mainContent = star & byClass "main-content" ? do
         width $ px 560.0
@@ -98,7 +116,7 @@ attrName :: String -> String -> Selector
 attrName xs ys = element xs & attr ys
 
 divClassRow :: CSS
-divClassRow = attrName "div" "\"class\"=\"row\"" ? do
+divClassRow = attrName "div" "class*=\"row\"" ? do
     display flex
     F.flexDirection row
 
