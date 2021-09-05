@@ -69,7 +69,7 @@ foot =
 mainMain :: CSS
 mainMain = element "main" ? do
     let serif = GenericFontFamily $ Value $ Plain "serif"
-    fontFamily ["Ultra"] $ NE.NonEmpty serif []
+    -- fontFamily ["Ultra"] $ NE.NonEmpty serif []
     TA.textAlign TA.center
     minWidth $ px 560.0
 
@@ -143,6 +143,6 @@ clickOperaRowBtn :: CSS
 clickOperaRowBtn = classname "click-area .operator .row5 .btn" ? width (px 390.0)
 
 clickOperaBtnAct :: CSS
-clickOperaBtnAct = classname "click-area .operator .btn:acive" ? do
+clickOperaBtnAct = classname "click-area .operator .btn:active" ? do
     backgroundColor $ hexColor "#ffffff"
     color $ hexColor "#a0a0dd"

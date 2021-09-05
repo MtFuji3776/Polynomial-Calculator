@@ -25,6 +25,8 @@ import Halogen.VDom.Driver (runUI)
 import StyleSheet (expo)
 import Web.Event.Event (Event)
 import Web.Event.Event as Event
+import Parser
+-- import Data.Either(fromRight)
 
 -- import Data.Array(cons)
 
@@ -226,6 +228,11 @@ handleAction  = case _ of
                 let xs = st.formula
                     xs' = if st.isAbleToEvaluate && not st.isPeriod then xs <> "." else xs
                 in if not st.isAbleToEvaluate then st{formula = xs'} else st{formula = xs',isPeriod = true}
+              Equal -> H.modify_ \st -> if st.isAbleToEvaluate 
+                                            then let fm = st.formula
+                                                     fm' = expr2 fm
+                                                  in st{formula = show $ summation fm'}
+                                            else st
               _ -> H.modify_ \st -> st
   -- MakeRequest event -> do
   --   H.liftEffect $ Event.preventDefault event
