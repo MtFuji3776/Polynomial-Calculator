@@ -1,1 +1,0 @@
-{"reExports":[],"name":"MultiVirtual2","comments":null,"declarations":[{"children":[],"comments":null,"title":"bar","info":{"declType":"value","type":{"annotation":[],"tag":"TypeConstructor","contents":[["Prim"],"Int"]}},"sourceSpan":{"start":[8,1],"name":"/home/harry/code/purescript/tests/purs/docs/src/MultiVirtual2.purs","end":[8,11]}}]}
