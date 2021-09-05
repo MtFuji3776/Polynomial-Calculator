@@ -36,19 +36,21 @@ mainContent :: CSS
 mainContent = star & byClass "main-content" ? do
         width $ px 560.0
         height $ px 570.0
-        marginTop auto 
-        paddingTop $ px 50.0
+        margin_ auto 
+        padding_ $ px 50.0
         color black
-        backgroundColor $ fromMaybe red  (fromHexString "#e9e9e99f")
+        backgroundColor $ fromMaybe black  (fromHexString "#e9e9e9")
         border solid (px 1.0) (fromMaybe red $ fromHexString "#8f8f8f")
-        borderRadius  (px 10.0) (px 0.0) (px 0.0) (px 0.0)
+        borderRadius  (px 10.0) (px 10.0) (px 10.0) (px 10.0)
 
 hexColor :: String -> Color
 hexColor xs = fromMaybe white $ fromHexString xs
 
+padding_ x = padding x x x x
+
 headFoot :: CSS
 headFoot = element "header,footer" ? do
-    paddingLeft $ px 50.0
+    padding_ $ px 50.0
     fontFamily ["Sawarabi Mincho"] $ NE.NonEmpty sansSerif []
     color white
     backgroundColor $ hexColor "#28263f"
@@ -74,12 +76,14 @@ mainMain = element "main" ? do
 contentArea :: CSS
 contentArea = star & byClass "content-area" ? (width $ px 560.0)
 
+margin_ x = margin x x x x
+
 displayArea :: CSS
 displayArea = star & byClass "display-area" ? do
     backgroundColor $ hexColor "#ffffff"
     display flex
     F.flexDirection row
-    marginTop $ px 10.0
+    margin_ $ px 10.0
     width $ px 520.0
     height $ px 100.0
     border solid (px 5.0) (hexColor "#a0a0dd")
