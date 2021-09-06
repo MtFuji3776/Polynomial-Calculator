@@ -1,14 +1,16 @@
 module Main where
 
 import Halogen.HTML.CSS
+import Parser
 import Prelude
 
 import Affjax as AX
 import Affjax.ResponseFormat as AXRF
 import Config (expo) as Config
+import Data.Either (Either(..), fromRight)
 import Data.Either (hush)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
-import Data.String (singleton, uncons, length, take, drop)
+import Data.String (singleton, uncons, length, take, drop,contains,Pattern(..))
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
@@ -25,8 +27,6 @@ import Halogen.VDom.Driver (runUI)
 import StyleSheet (expo)
 import Web.Event.Event (Event)
 import Web.Event.Event as Event
-import Parser
--- import Data.Either(fromRight)
 
 -- import Data.Array(cons)
 
@@ -50,6 +50,18 @@ data ActNum = Zero
             | Seven
             | Eight
             | Nine
+  
+instance showActNum :: Show ActNum where
+  show Zero  = "0"
+  show One   = "1"
+  show Two   = "2"
+  show Three = "3"
+  show Four  = "4"
+  show Five  = "5"
+  show Six   = "6"
+  show Seven = "7"
+  show Eight = "8"
+  show Nine  = "9"
 
 data ActOperator = Plus | Minus | Times | Divide
 
@@ -58,6 +70,7 @@ instance showActOperator :: Show ActOperator where
   show Minus  = "-"
   show Times  = "×"
   show Divide = "÷"
+  
 
 data ActSpecial = Equal | C | AC | Period | Substitute
 
@@ -68,6 +81,7 @@ type State = {formula :: String
              , isAbleToEvaluate :: Boolean
              , isSubstitutingMode :: Boolean
              , isPeriod :: Boolean
+             , isNumber :: Boolean
              , evalLog :: Array String}
 
 component :: forall query input output m . MonadAff m => H.Component query input output m
@@ -84,6 +98,7 @@ initialState _ = {formula: "0"
                  , isAbleToEvaluate: true
                  , isSubstitutingMode: false
                  , isPeriod: false
+                 , isNumber: false
                  , evalLog: []}
 
 initialState_ = initialState 0
@@ -181,59 +196,67 @@ render st =
     ]
 
 handleAction :: forall output m . MonadAff m => Action -> H.HalogenM State Action () output m Unit
-handleAction  = case _ of
-  AN x -> 
-    let setFormula x = H.modify_ \st ->
-          let fm = st.formula
-              fm' = if fm == "0" then show x else fm <> show x
-          in st{formula = fm',isAbleToEvaluate = true}
-        last xs = let n = length xs in drop (n-1) xs 
-    in case x of
-          Zero  -> H.modify_ \st ->
+handleAction  = let evalFormula st fm = if st.isNumber then show $ fromRight 0.0 $ runExprNumber fm else show $ fromRight 0 $ runExprInt fm in 
+  case _ of
+    AN x -> 
+      let setFormula x = H.modify_ \st ->
             let fm = st.formula
-                c  = last fm
-                fm' = if fm == "0" then fm else fm <> "0"
-            in  st{formula=fm'}
-          One   -> setFormula 1
-          Two   -> setFormula 2
-          Three -> setFormula 3
-          Four  -> setFormula 4
-          Five  -> setFormula 5
-          Six   -> setFormula 6
-          Seven -> setFormula 7
-          Eight -> setFormula 8
-          Nine  -> setFormula 9
-  AO x ->
-    let init xs = let n = length xs in take (n-1) xs 
-        processOperator st op = 
-          let fm = st.formula
-              flagEval = st.isAbleToEvaluate
-              fm' = if flagEval then fm <> show op else (init fm) <> show op
-          in st{formula = fm', isAbleToEvaluate = false,isPeriod = false}
-    in case x of
-          Plus   -> H.modify_ \st ->
+                fm' = if fm == "0" then show x else fm <> show x
+            in st{formula = fm'}
+          last xs = let n = length xs in drop (n-1) xs 
+      in case x of
+            Zero  -> H.modify_ \st ->
+              let fm = st.formula
+                  c  = last fm
+                  fm' = if fm == "0" then fm else fm <> "0"
+              in  st{formula=fm'}
+            One   -> setFormula One
+            Two   -> setFormula Two
+            Three -> setFormula Three
+            Four  -> setFormula Four
+            Five  -> setFormula Five
+            Six   -> setFormula Six
+            Seven -> setFormula Seven
+            Eight -> setFormula Eight
+            Nine  -> setFormula Nine
+    AO x ->
+      let init xs = let n = length xs in take (n-1) xs 
+          processOperator st op = 
             let fm = st.formula
                 flagEval = st.isAbleToEvaluate
-                fm' = if flagEval -- flagEvalがfalseになるのは、式の末尾が演算子のとき。その時に+が押されたら末尾を+に付け替える。
-                        then fm <> "+"
+                fm' = if flagEval then evalFormula st fm <> show op else (init fm) <> show op
+            in st{formula = fm', isAbleToEvaluate = false,isPeriod = false} -- 演算子が一個ついた時点でisAbleToEvaluateはfalseにする
+      in case x of
+          Plus   -> H.modify_ \st ->
+            let fm = st.formula
+                fm' = if st.isAbleToEvaluate -- flagEvalがfalseになるのは、式の末尾が演算子のとき。その時に+が押されたら末尾を+に付け替える。
+                        then evalFormula st fm <> "+"
                         else (init fm) <> "+"
             in st{formula = fm', isAbleToEvaluate = false, isPeriod = false}
           Minus  -> H.modify_ \st -> processOperator st Minus
           Times  -> H.modify_ \st -> processOperator st Times
           Divide -> H.modify_ \st -> processOperator st Divide
-  AS x ->
-    case x of C -> H.modify_ \_ -> initialState 0
-              AC -> H.modify_ \st -> initialState 0
-              Period -> H.modify_ \st -> 
-                let xs = st.formula
-                    xs' = if st.isAbleToEvaluate && not st.isPeriod then xs <> "." else xs
-                in if not st.isAbleToEvaluate then st{formula = xs'} else st{formula = xs',isPeriod = true}
-              Equal -> H.modify_ \st -> if st.isAbleToEvaluate 
-                                            then let fm = st.formula
-                                                     fm' = expr2 fm
-                                                  in st{formula = show $ summation fm'}
+    AS x ->
+      case x of C -> H.modify_ \_ -> initialState 0
+                AC -> H.modify_ \st -> initialState 0
+                Period -> H.modify_ \st -> 
+                  let xs = st.formula
+                      xs' = if st.isAbleToEvaluate && not (contains (Pattern ".") xs) then xs <> "." else xs
+                  in if not st.isAbleToEvaluate then st{formula = xs} else st{formula = xs',isPeriod = true,isNumber = true} -- Periodがついた場合、それ以降はNumberの計算になる。ACを押されるとリセットされる。
+                Equal -> H.modify_ \st -> if st.isAbleToEvaluate
+                                            then if st.isNumber 
+                                              then 
+                                                let      
+                                                  fm = st.formula
+                                                  fm' = show $ fromRight 0.0 $ runExprNumber fm
+                                                in st{formula = show fm'}
+                                              else
+                                                let 
+                                                  fm = st.formula
+                                                  fm' = show $ fromRight 0 $ runExprInt fm
+                                                in st{formula = show fm'}
                                             else st
-              _ -> H.modify_ \st -> st
+                _ -> H.modify_ \st -> st
   -- MakeRequest event -> do
   --   H.liftEffect $ Event.preventDefault event
   --   username <- H.gets _.username
