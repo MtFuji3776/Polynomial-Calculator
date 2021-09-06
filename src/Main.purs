@@ -1,9 +1,9 @@
 module Main where
 
+import Data.Boolean
 import Halogen.HTML.CSS
 import Parser
 import Prelude
-import Data.Boolean
 
 import Affjax as AX
 import Affjax.ResponseFormat as AXRF
@@ -80,9 +80,9 @@ data Action = AN ActNum | AO ActOperator | AS ActSpecial
 
 type State = { formula :: String
              , newInputs :: String
-             , inputLog :: Array {formula_::String, newInputs_ :: String}
-             , counter :: Int
-             , evalLog :: Array Int
+            --  , inputLog :: Array {formula_::String, newInputs_ :: String}
+            --  , counter :: Int
+            --  , evalLog :: Array Int
              }
 
 component :: forall query input output m . MonadAff m => H.Component query input output m
@@ -97,9 +97,9 @@ component =
 initialState :: forall input . input -> State
 initialState _ = { formula:   ""
                  , newInputs: "0"
-                 , inputLog:  []
-                 , counter:    0
-                 , evalLog:   []
+                --  , inputLog:  []
+                --  , counter:    0
+                --  , evalLog:   []
                  }
 
 initialState_ = initialState 0
@@ -201,52 +201,100 @@ render st =
         ]
         
     ]
+
+q0 x y = x == "" && y == "0"
+
+q1 x y = x == "" && (not (y == "" || y == "0"))
+
+q2 x y = (not (x == "")) && y == ""
+
+q3 x y = not (x == "" || y == "")
+
+q4 x y = (not (x == "")) && (y == "+" || y == "-" || y == "×" || y == "÷")
+
+evalFormula :: State -> State
+evalFormula st =
+    let fm = st.formula
+        ni = st.newInputs
+        zs = fm <> ni
+        zs' = runExprInt zs
+    in case zs' of Left _  -> st
+                   Right n -> st{formula = show n,newInputs = ""}
 -- なんと、handleActionをよく見れば、Actionを引数に取る関数である。
   -- StateとActionをオートマトンと見做す時、handleActionは遷移関数に相当するが、その定義を入力文字別に場合分けして書き下すことが義務付けられているということ。
   -- 正直Stateベースで場合分けする方が書きやすい…
 handleAction :: forall output m . MonadAff m => Action -> H.HalogenM State Action () output m Unit
-handleAction  = H.modify_ \st ->
+handleAction  = case _ of 
+        AN x -> H.modify_ \st -> 
           let fm = st.formula
               ni = st.newInputs
-              evalFormula xs ys =
-                  let zs = fm <> ni
-                      zs' = runExprInt xs
-                  in case zs' of Left _  -> st
-                                 Right n -> st{formula = show n,newInputs = ""}
-          in  if fm == "" && ni == "0" 
-            then case _ of
-                    AN x -> st{newInputs = show x}
-                    AO x -> st{formula = ni, newInputs = show x}
-                    AS x ->
-                      case x of Period -> st{newInputs = ni <> "."}
-                                AC     -> initialState 0
-                                _      -> st
-            else if ni == "0" 
-              then case _ of
-                    AN x -> st{newInputs = show x}
-                    AO x -> (evalFormula fm ni){newInputs = show x}
-                    AS x -> 
-                      case x of Period -> st{newInputs = ni <> "."}
-                                AC     -> initialState 0
-                                Equal  -> evalFormula fm ni
-                                _      -> st
-            else if ni == "+" || ni == "-" || ni == "×" || ni == "÷"
-              then case _ of
-                    AN x -> st{formula = fm <> ni, newInputs = show x}
-                    AO x -> st{newInputs = show x}
-                    AS x -> 
-                      case x of AC -> initialState 0
-                                _  -> st
-              else case _ of 
-                    AN x -> st{newInputs = ni <> show x}
-                    AO x -> (evalFormula fm ni){newInputs = show x}
-                    AS x ->
-                      case x of Period -> st{newInputs = ni <> "."}
-                                AC     -> initialState 0
-                                Equal  -> evalFormula fm ni 
-                                _      -> st
+          in if q0 fm ni then st {newInputs = show x}
+              else if q1 fm ni then st{newInputs = (ni <> show x)}
+              else if q4 fm ni then st{formula = (evalFormula st{formula = fm <> ni}).formula,newInputs = show x} 
+              else if q2 fm ni then st{formula = "",newInputs = (fm <> show x)}
+              else  st{newInputs = ni <> show x}
+        AO x -> H.modify_ \st ->
+          let fm = st.formula
+              ni = st.newInputs
+          in if q0 fm ni then st{formula = show $ runExprInt ni,newInputs = show x}
+              else if q1 fm ni then st{formula = (evalFormula st).formula,newInputs = show x}
+              else if q4 fm ni then st{newInputs = show x}
+              else if q2 fm ni then st{newInputs = show x}
+              else st{newInputs = (ni <> show x)}
+        AS x -> H.modify_ \st -> 
+            let fm = st.formula :: String
+                ni = st.newInputs :: String
+            in
+                case x of 
+                  Equal ->
+                         if q0 fm ni then st 
+                          else if q1 fm ni then st
+                          else if q4 fm ni then st
+                          else if q2 fm ni then st
+                          else st{formula = (evalFormula st).formula,newInputs = ""}
+                  AC    -> initialState_
+                  _     -> st
       
       
+--           let fm = st.formula
+--               ni = st.newInputs
+--               evalFormula xs ys =
+--                   let zs = fm <> ni
+--                       zs' = runExprInt xs
+--                   in case zs' of Left _  -> st
+--                                  Right n -> st{formula = show n,newInputs = ""}
+--           in  if fm == "" && ni == "0" 
+--             then case _ of
+--                     AN x -> st{newInputs = show x}
+--                     AO x -> st{formula = ni, newInputs = show x}
+--                     AS x ->
+--                       case x of Period -> st{newInputs = ni <> "."}
+--                                 AC     -> initialState 0
+--                                 _      -> st
+--             else if ni == "0" 
+--               then case _ of
+--                     AN x -> st{newInputs = show x}
+--                     AO x -> (evalFormula fm ni){newInputs = show x}
+--                     AS x -> 
+--                       case x of Period -> st{newInputs = ni <> "."}
+--                                 AC     -> initialState 0
+--                                 Equal  -> evalFormula fm ni
+--                                 _      -> st
+--             else if ni == "+" || ni == "-" || ni == "×" || ni == "÷"
+--               then case _ of
+--                     AN x -> st{formula = fm <> ni, newInputs = show x}
+--                     AO x -> st{newInputs = show x}
+--                     AS x -> 
+--                       case x of AC -> initialState 0
+--                                 _  -> st
+--               else case _ of 
+--                     AN x -> st{newInputs = ni <> show x}
+--                     AO x -> (evalFormula fm ni){newInputs = show x}
+--                     AS x ->
+--                       case x of Period -> st{newInputs = ni <> "."}
+--                                 AC     -> initialState 0
+--                                 Equal  -> evalFormula fm ni 
+--                                 _      -> st
       
       
   --     let evalFormula st fm = if st.isNumber then show $ fromRight 0.0 $ runExprNumber fm else show $ fromRight 0 $ runExprInt fm in 
