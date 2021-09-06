@@ -3,6 +3,7 @@ module Main where
 import Halogen.HTML.CSS
 import Parser
 import Prelude
+import Data.Boolean
 
 import Affjax as AX
 import Affjax.ResponseFormat as AXRF
@@ -10,7 +11,7 @@ import Config (expo) as Config
 import Data.Either (Either(..), fromRight)
 import Data.Either (hush)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
-import Data.String (singleton, uncons, length, take, drop,contains,Pattern(..))
+import Data.String (singleton, uncons, length, take, drop, contains, Pattern(..))
 import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
@@ -77,12 +78,12 @@ data ActSpecial = Equal | C | AC | Period | Substitute
 
 data Action = AN ActNum | AO ActOperator | AS ActSpecial
 
-type State = {formula :: String
-             , isAbleToEvaluate :: Boolean
-             , isSubstitutingMode :: Boolean
-             , isPeriod :: Boolean
-             , isNumber :: Boolean
-             , evalLog :: Array String}
+type State = { formula :: String
+             , newInputs :: String
+             , inputLog :: Array {formula_::String, newInputs_ :: String}
+             , counter :: Int
+             , evalLog :: Array Int
+             }
 
 component :: forall query input output m . MonadAff m => H.Component query input output m
 component =
@@ -94,12 +95,12 @@ component =
     } -- レコード型の一種だろうか？これを引数にとってcomponentが生成される。
   
 initialState :: forall input . input -> State
-initialState _ = {formula: "0"
-                 , isAbleToEvaluate: true
-                 , isSubstitutingMode: false
-                 , isPeriod: false
-                 , isNumber: false
-                 , evalLog: []}
+initialState _ = { formula:   ""
+                 , newInputs: "0"
+                 , inputLog:  []
+                 , counter:    0
+                 , evalLog:   []
+                 }
 
 initialState_ = initialState 0
 
@@ -132,7 +133,13 @@ render st =
                       [
                         HHE.div [HP.class_ $ ClassName "num_display"]
                         [
-                          HH.text $ st.formula
+                          HH.text $ let fm = st.formula
+                                        ni = st.newInputs
+                                      in if fm == "" && ni == "0" 
+                                        then ni
+                                        else if ni == "+" || ni == "-" || ni == "×" || ni == "÷"
+                                          then fm <> ni
+                                          else fm <> ni
                         ]
                       , HHE.div [HP.class_$ ClassName "howcal_display"] []
                       ]
@@ -194,70 +201,116 @@ render st =
         ]
         
     ]
-
+-- なんと、handleActionをよく見れば、Actionを引数に取る関数である。
+  -- StateとActionをオートマトンと見做す時、handleActionは遷移関数に相当するが、その定義を入力文字別に場合分けして書き下すことが義務付けられているということ。
+  -- 正直Stateベースで場合分けする方が書きやすい…
 handleAction :: forall output m . MonadAff m => Action -> H.HalogenM State Action () output m Unit
-handleAction  = let evalFormula st fm = if st.isNumber then show $ fromRight 0.0 $ runExprNumber fm else show $ fromRight 0 $ runExprInt fm in 
-  case _ of
-    AN x -> 
-      let setFormula x = H.modify_ \st ->
-            let fm = st.formula
-                fm' = if fm == "0" then show x else fm <> show x
-            in st{formula = fm'}
-          last xs = let n = length xs in drop (n-1) xs 
-      in case x of
-            Zero  -> H.modify_ \st ->
-              let fm = st.formula
-                  c  = last fm
-                  fm' = if fm == "0" then fm else fm <> "0"
-              in  st{formula=fm'}
-            One   -> setFormula One
-            Two   -> setFormula Two
-            Three -> setFormula Three
-            Four  -> setFormula Four
-            Five  -> setFormula Five
-            Six   -> setFormula Six
-            Seven -> setFormula Seven
-            Eight -> setFormula Eight
-            Nine  -> setFormula Nine
-    AO x ->
-      let init xs = let n = length xs in take (n-1) xs 
-          processOperator st op = 
-            let fm = st.formula
-                flagEval = st.isAbleToEvaluate
-                fm' = if flagEval then evalFormula st fm <> show op else (init fm) <> show op
-            in st{formula = fm', isAbleToEvaluate = false,isPeriod = false} -- 演算子が一個ついた時点でisAbleToEvaluateはfalseにする
-      in case x of
-          Plus   -> H.modify_ \st ->
-            let fm = st.formula
-                fm' = if st.isAbleToEvaluate -- flagEvalがfalseになるのは、式の末尾が演算子のとき。その時に+が押されたら末尾を+に付け替える。
-                        then evalFormula st fm <> "+"
-                        else (init fm) <> "+"
-            in st{formula = fm', isAbleToEvaluate = false, isPeriod = false}
-          Minus  -> H.modify_ \st -> processOperator st Minus
-          Times  -> H.modify_ \st -> processOperator st Times
-          Divide -> H.modify_ \st -> processOperator st Divide
-    AS x ->
-      case x of C -> H.modify_ \_ -> initialState 0
-                AC -> H.modify_ \st -> initialState 0
-                Period -> H.modify_ \st -> 
-                  let xs = st.formula
-                      xs' = if st.isAbleToEvaluate && not (contains (Pattern ".") xs) then xs <> "." else xs
-                  in if not st.isAbleToEvaluate then st{formula = xs} else st{formula = xs',isPeriod = true,isNumber = true} -- Periodがついた場合、それ以降はNumberの計算になる。ACを押されるとリセットされる。
-                Equal -> H.modify_ \st -> if st.isAbleToEvaluate
-                                            then if st.isNumber 
-                                              then 
-                                                let      
-                                                  fm = st.formula
-                                                  fm' = show $ fromRight 0.0 $ runExprNumber fm
-                                                in st{formula = show fm'}
-                                              else
-                                                let 
-                                                  fm = st.formula
-                                                  fm' = show $ fromRight 0 $ runExprInt fm
-                                                in st{formula = show fm'}
-                                            else st
-                _ -> H.modify_ \st -> st
-  -- MakeRequest event -> do
+handleAction  = H.modify_ \st ->
+          let fm = st.formula
+              ni = st.newInputs
+              evalFormula xs ys =
+                  let zs = fm <> ni
+                      zs' = runExprInt xs
+                  in case zs' of Left _  -> st
+                                 Right n -> st{formula = show n,newInputs = ""}
+          in  if fm == "" && ni == "0" 
+            then case _ of
+                    AN x -> st{newInputs = show x}
+                    AO x -> st{formula = ni, newInputs = show x}
+                    AS x ->
+                      case x of Period -> st{newInputs = ni <> "."}
+                                AC     -> initialState 0
+                                _      -> st
+            else if ni == "0" 
+              then case _ of
+                    AN x -> st{newInputs = show x}
+                    AO x -> (evalFormula fm ni){newInputs = show x}
+                    AS x -> 
+                      case x of Period -> st{newInputs = ni <> "."}
+                                AC     -> initialState 0
+                                Equal  -> evalFormula fm ni
+                                _      -> st
+            else if ni == "+" || ni == "-" || ni == "×" || ni == "÷"
+              then case _ of
+                    AN x -> st{formula = fm <> ni, newInputs = show x}
+                    AO x -> st{newInputs = show x}
+                    AS x -> 
+                      case x of AC -> initialState 0
+                                _  -> st
+              else case _ of 
+                    AN x -> st{newInputs = ni <> show x}
+                    AO x -> (evalFormula fm ni){newInputs = show x}
+                    AS x ->
+                      case x of Period -> st{newInputs = ni <> "."}
+                                AC     -> initialState 0
+                                Equal  -> evalFormula fm ni 
+                                _      -> st
+      
+      
+      
+      
+  --     let evalFormula st fm = if st.isNumber then show $ fromRight 0.0 $ runExprNumber fm else show $ fromRight 0 $ runExprInt fm in 
+  -- case _ of
+  --   AN x -> 
+  --     let setFormula x = H.modify_ \st ->
+  --           let fm = st.formula
+  --               fm' = if fm == "0" then show x else fm <> show x
+  --           in st{formula = fm'}
+  --         last xs = let n = length xs in drop (n-1) xs 
+  --     in case x of
+  --           Zero  -> H.modify_ \st ->
+  --             let fm = st.formula
+  --                 c  = last fm
+  --                 fm' = if fm == "0" then fm else fm <> "0"
+  --             in  st{formula=fm'}
+  --           One   -> setFormula One
+  --           Two   -> setFormula Two
+  --           Three -> setFormula Three
+  --           Four  -> setFormula Four
+  --           Five  -> setFormula Five
+  --           Six   -> setFormula Six
+  --           Seven -> setFormula Seven
+  --           Eight -> setFormula Eight
+  --           Nine  -> setFormula Nine
+  --   AO x ->
+  --     let init xs = let n = length xs in take (n-1) xs 
+  --         processOperator st op = 
+  --           let fm = st.formula
+  --               flagEval = st.isAbleToEvaluate
+  --               fm' = if flagEval then evalFormula st fm <> show op else (init fm) <> show op
+  --           in st{formula = fm', isAbleToEvaluate = false,isPeriod = false} -- 演算子が一個ついた時点でisAbleToEvaluateはfalseにする
+  --     in case x of
+  --         Plus   -> H.modify_ \st ->
+  --           let fm = st.formula
+  --               fm' = if st.isAbleToEvaluate -- flagEvalがfalseになるのは、式の末尾が演算子のとき。その時に+が押されたら末尾を+に付け替える。
+  --                       then evalFormula st fm <> "+"
+  --                       else (init fm) <> "+"
+  --           in st{formula = fm', isAbleToEvaluate = false, isPeriod = false}
+  --         Minus  -> H.modify_ \st -> processOperator st Minus
+  --         Times  -> H.modify_ \st -> processOperator st Times
+  --         Divide -> H.modify_ \st -> processOperator st Divide
+  --   AS x ->
+  --     case x of C -> H.modify_ \_ -> initialState 0
+  --               AC -> H.modify_ \st -> initialState 0
+  --               Period -> H.modify_ \st -> 
+  --                 let xs = st.formula
+  --                     xs' = if st.isAbleToEvaluate && not (contains (Pattern ".") xs) then xs <> "." else xs
+  --                 in if not st.isAbleToEvaluate then st{formula = xs} else st{formula = xs',isPeriod = true,isNumber = true} -- Periodがついた場合、それ以降はNumberの計算になる。ACを押されるとリセットされる。
+  --               Equal -> H.modify_ \st -> if st.isAbleToEvaluate
+  --                                           then if st.isNumber 
+  --                                             then 
+  --                                               let      
+  --                                                 fm = st.formula
+  --                                                 fm' = show $ fromRight 0.0 $ runExprNumber fm
+  --                                               in st{formula = show fm'}
+  --                                             else
+  --                                               let 
+  --                                                 fm = st.formula
+  --                                                 fm' = show $ fromRight 0 $ runExprInt fm
+  --                                               in st{formula = show fm'}
+  --                                           else st
+  --               _ -> H.modify_ \st -> st
+  -- -- MakeRequest event -> do
   --   H.liftEffect $ Event.preventDefault event
   --   username <- H.gets _.username
   --   H.modify_ _ {loading = true}
