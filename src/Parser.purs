@@ -67,7 +67,12 @@ number = do
 
 isNumber :: String -> Boolean
 isNumber xs = 
-    let rslt = runParser xs number
+    let p = do
+            _ <- many1 (satisfy $ \x -> not $ x == '.')
+            x <- char '.'
+            _ <- many (satisfy $ \x -> not $ x == '.')
+            pure x
+        rslt = runParser xs p
     in case rslt of
         Left _  -> false
         Right _ -> true
@@ -115,12 +120,12 @@ digitNumber =
     let intstr    = map toNumber digitInt-- Intとも取れる数はまずIntとして解析し、それをNumberに変換する
         numberstr = do
             xs <- many1 digit
-            p <- string "."
-            y <-  many  digit
+            p  <- option "." $ string "."
+            y  <-  many  digit
             let x' = listToString xs
                 y' = fromCharArray $ fromFoldable y
             map (\z -> fromMaybe 0.0 $ fromString z) $ pure $ x' <> p <> y'
-    in numberstr <|> intstr <?> "digit" -- オルタナは左を優先的に調べるので、先にIntがマッチングする不具合は防げるはず
+    in numberstr <?> "digit" -- オルタナは左を優先的に調べるので、先にIntがマッチングする不具合は防げるはず
     -- オルタナティブが仕事してくれてないのは何故なのか？
 
 
@@ -180,3 +185,22 @@ readNum cs =
     in n
 
 summation cs = let ns = map readNum cs in foldr (+) 0.0 ns
+
+-- -- 文字列段階で式に干渉し、Int値と見做せる式をNumber値に解釈可能にするためのパーサー
+-- exprString :: Parser String String
+-- exprString  = buildExprParser [
+--       [ Prefix (string"-" $> (\x -> "" <> x))]
+--     , [ Infix (string "÷" $> (<>)) AssocRight]
+--     , [ Infix (string "×" $> (<>)) AssocRight]
+--     , [ Infix (string "-" $> (<>)) AssocRight]
+--     , [ Infix (string "+" $> (<>)) AssocRight]
+--     ] putPeriod <?> "expression"
+
+-- putPeriod :: Parser String String
+-- putPeriod = do
+--   x <- digitNumber
+--   Position pos <- position
+--   let x' = show x
+--   let n  = line pos
+--   pure $ show x <> "."
+
