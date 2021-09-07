@@ -1,20 +1,35 @@
-module Parser where
+module Parser(
+              number,
+              isNumber,
+              exprInt,
+              exprNumber,
+              runParser',
+              runExprInt,
+              includePeriod,
+              predicateByParser,
+              isEndPeriod,
+              isEndOperator,
+              isOperators,
+              runExprNumber,
+              digitNumber,
+              digitInt) where
 
 import Control.Applicative
---import Data.BigInt
-import Data.Int
 import Data.Char
 import Data.EuclideanRing
+import Data.Int
 import Prelude hiding (between)
 import Text.Parsing.Parser
 import Text.Parsing.Parser.Combinators
 import Text.Parsing.Parser.Expr
+import Text.Parsing.Parser.Pos
 import Text.Parsing.Parser.String
 import Text.Parsing.Parser.Token
 
-import Control.Alt ((<|>))
+import Control.Alternative ((<|>))
 import Control.Monad (class Monad, pure)
-import Data.Either (fromRight, Either)
+import Data.Array (fromFoldable, replicate)
+import Data.Either (fromRight, Either(..))
 import Data.Functor (($>))
 import Data.List (List(..), many, (:), singleton, foldr, span, tail)
 import Data.List.NonEmpty (cons', NonEmptyList) as NEL
@@ -22,6 +37,9 @@ import Data.List.Types (toList)
 import Data.Maybe (fromMaybe)
 import Data.Number (fromString)
 import Data.String (length)
+import Data.String.CodeUnits (fromCharArray)
+
+--import Data.Rational()
 
 foreign import data BigInt :: Type
 
@@ -31,37 +49,80 @@ many1 p = NEL.cons' <$> p <*> many p
 parens :: forall s a . StringLike s =>  Parser s a -> Parser s a
 parens = between (string "(") (string ")") 
 
--- inside :: forall s . StringLike s => Parser s (NEL.NonEmptyList Char)
--- inside = parens (many1 anyChar)
 
--- test :: String -> Either ParseError String
--- test xs = runParser inside xs
+listToString :: NEL.NonEmptyList Char -> String
+listToString l = fromCharArray $ fromFoldable l
+
+
+intPartOfnumber :: Parser String Number
+intPartOfnumber = map (\l -> fromMaybe 0.0 $ fromString $ listToString l) $ many1 digit
+
+number :: Parser String Number
+number = do
+    n1 <- intPartOfnumber
+    _  <- string "."
+    n2 <- intPartOfnumber
+    let k = length $ show n2
+    pure $ n1 + (n2 / foldr (*) 1.0 (replicate k 10.0))
+
+isNumber :: String -> Boolean
+isNumber xs = 
+    let rslt = runParser xs number
+    in case rslt of
+        Left _  -> false
+        Right _ -> true
+        
+includePeriod :: String -> Boolean
+includePeriod xs = isNumber xs
+
+isEndPeriod :: String -> Boolean
+isEndPeriod xs = 
+    let last zs = let n = length zs in drop (n-1) zs
+    in last xs == "."
+
+-- パーサーを与えると、Stringに関する術後を返す関数。
+    -- マッチング成功でtrue,失敗でfalseを返す
+    -- 「末尾の文字が何々」のような、文字の位置情報に関しては難しい。というのはマッチングが甘々なので。
+predicateByParser :: forall s a . StringLike s => s -> Parser s a -> Boolean
+predicateByParser xs ps = 
+    let rslt = runParser xs ps
+    in case rslt of
+        Left _ -> false
+        Right _ -> true
+
+operators :: forall s . StringLike s => Parser s Char
+operators = choice $ map char ['+','-','×','÷']
+
+isOperators :: String -> Boolean
+isOperators xs = predicateByParser xs operators
+
+isEndOperator :: String -> Boolean
+isEndOperator xs =
+    let last zs = let n = length zs in drop (n-1) zs
+    in isOperators xs
+
+
+runParser' = runParser
+
 
 digitInt :: Parser String Int
 digitInt = map (\x -> readInt $ toList x) $ many1 digit
 
--- digitBigInt :: Parser String BigInt
--- digitBigInt = map (\x -> readBigInt $ toList x) $ many1 digit
 
 -- digitの戻り値を変換
-digit_ :: Parser String Number
-digit_ = 
-    let digitInt_ n k = if div n 10 == 0 then k else digitInt_ (div n 10) (k+1)
-        digitInt n = digitInt_ n 1
-        p1 = do
-            x1 <- map (\x -> readInt $ toList x) $ many1 digit
-            _  <- char '.'
-            x2 <- map (\x -> readInt $ toList x) $ many1 digit
-            let k = toNumber $ digitInt x2
-            pure $ toNumber x1 + (toNumber x2 / k)
-    in (map (\x -> readNum $ toList x) $ many1 digit) <|> p1 <?> "digit"
+digitNumber :: Parser String Number
+digitNumber = 
+    let intstr    = map toNumber digitInt-- Intとも取れる数はまずIntとして解析し、それをNumberに変換する
+        numberstr = do
+            xs <- many1 digit
+            p <- string "."
+            y <-  many  digit
+            let x' = listToString xs
+                y' = fromCharArray $ fromFoldable y
+            map (\z -> fromMaybe 0.0 $ fromString z) $ pure $ x' <> p <> y'
+    in numberstr <|> intstr <?> "digit" -- オルタナは左を優先的に調べるので、先にIntがマッチングする不具合は防げるはず
+    -- オルタナティブが仕事してくれてないのは何故なのか？
 
--- digitMinus = do
---     x <- string "-"
---     y <- digit_
---     pure $ -y
-
-digit' = digit_ -- <|> digitMinus 
 
 exprInt :: Parser String Int
 exprInt = buildExprParser [
@@ -73,13 +134,13 @@ exprInt = buildExprParser [
     ] digitInt <?> "expression"
 
 exprNumber :: Parser String Number
-exprNumber = buildExprParser [
+exprNumber  = buildExprParser [
       [ Prefix (string"-" $> negate)]
     , [ Infix (string "÷" $> div) AssocRight]
     , [ Infix (string "×" $> mul) AssocRight]
     , [ Infix (string "-" $> sub) AssocRight]
     , [ Infix (string "+" $> add) AssocRight]
-    ] digit' <?> "expression"
+    ] digitNumber <?> "expression"
 
 
 --runExprs :: Num a => String -> Parser String a -> Either ParseError a
@@ -87,8 +148,9 @@ runExprs xs expr = runParser xs expr
 
 runExprInt xs = runExprs xs exprInt
 
-runExprNumber xs = runExprs xs exprNumber
-
+runExprNumber :: String -> Either ParseError Number
+runExprNumber xs = runParser xs exprNumber 
+                
 
 -- test :: Either ParseError Number
 -- test = runParser "1*2+3" expr
@@ -113,12 +175,8 @@ readInt xs = readInt_ xs Nil
 
 readNum :: List Char -> Number
 readNum cs = 
-    let p = span (\x -> not (x == '.')) cs
-        xs = p.init
-        ys = fromMaybe Nil $ tail p.rest
-        n1 = toNumber $ readInt xs
-        n2 = toNumber $ readInt ys
-        k  = toNumber $ length $ show n2
-    in n1 + (n2 / k)
+    let xs = fromFoldable cs
+        n  = fromMaybe 0.0 $ fromString $ fromCharArray xs
+    in n
 
 summation cs = let ns = map readNum cs in foldr (+) 0.0 ns
