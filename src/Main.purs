@@ -86,11 +86,18 @@ instance showActSpecial :: Show ActSpecial where
 
 data Action = AN ActNum | AO ActOperator | AS ActSpecial
 
-type State = { formula :: String
-             , newInputs :: String
-             , inputLog :: Array {formula_::String, newInputs_ :: String}
-             , counter :: Int
-             , evalLog :: Array Int
+
+data PositionOfPeriod = NoExists | MiddleOfNI | EndOfNI
+
+derive instance eqPositionOfPEriod :: Eq PositionOfPeriod 
+
+type State = { formula     :: String
+             , actOperator :: Maybe ActOperator
+             , newInputs   :: String
+             , positionOfPeriod :: PositionOfPeriod
+             , inputLog    :: Array {formula_::String, newInputs_ :: String}
+             , counter     :: Int
+             , evalLog     :: Array Int
              }
 
 component :: forall query input output m . MonadAff m => H.Component query input output m
@@ -104,7 +111,9 @@ component =
   
 initialState :: forall input . input -> State
 initialState _ = { formula:   ""
+                 , actOperator: Nothing
                  , newInputs: "0"
+                 , positionOfPeriod: NoExists
                  , inputLog:  []
                  , counter:    0
                  , evalLog:   []
