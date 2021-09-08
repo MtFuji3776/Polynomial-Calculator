@@ -7,6 +7,7 @@ You can edit this file as you like.
 , dependencies =
     [ "affjax"
     , "console"
+    , "control"
     , "css"
     , "effect"
     , "halogen"

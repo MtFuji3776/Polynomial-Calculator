@@ -140,7 +140,9 @@ render st =
         [
           HHE.meta [HP.charset "UTF-8",HP.name "viewpoint"]
         , HHE.title [] [HH.text "Web電卓"]
-        , HHE.link [HP.href "https://fonts.googleapis.com/css?family=Sawarabi+Mincho|Ultra&display=swap"]
+        , HHE.link [HP.href "https://fonts.googleapis.com/css?family=Sawarabi+Mincho|Ultra&display=swap",HP.rel "stylesheet"]
+        -- , HHE.link [HP.href "src/index.css",HP.rel "stylesheet"]
+        -- , HHE.link [HP.href "src/config.css",HP.rel "Stylesheet"]
         ]
       ,
       let classname nm = HP.class_ $ ClassName nm
@@ -158,7 +160,7 @@ render st =
                   [
                     HHE.div [HP.class_ $ ClassName "display-area"]
                       [
-                        HHE.div [HP.class_ $ ClassName "num_display"]
+                        HHE.div [HP.id_ "num_display"]
                         [
                           HH.text $ let fm = st.formula
                                         ni = st.newInputs
@@ -168,7 +170,13 @@ render st =
                                               Nothing -> fm <> ni
                                               Just f  -> fm <> show f <> ni
                         ]
-                      , HHE.div [HP.class_$ ClassName "howcal_display"] []
+                      , HHE.div [HP.id_ "howcal_display"] 
+                        [
+                          let showOperator x = HH.text $ show x in
+                          case st.actOperator of
+                            Nothing -> HH.text ""
+                            Just x  -> showOperator x
+                        ]
                       ]
                   , HHE.div [HP.class_ $ ClassName "click-area"]
                     [

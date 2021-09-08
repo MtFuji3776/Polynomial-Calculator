@@ -50,7 +50,7 @@ padding_ x = padding x x x x
 
 headFoot :: CSS
 headFoot = element "header,footer" ? do
-    padding_ $ px 50.0
+    paddingLeft $ px 50.0
     fontFamily ["Sawarabi Mincho"] $ NE.NonEmpty sansSerif []
     color white
     backgroundColor $ hexColor "#28263f"
@@ -69,7 +69,7 @@ foot =
 mainMain :: CSS
 mainMain = element "main" ? do
     let serif = GenericFontFamily $ Value $ Plain "serif"
-    -- fontFamily ["Ultra"] $ NE.NonEmpty serif []
+    fontFamily ["Ultra"] $ NE.NonEmpty serif []
     TA.textAlign TA.center
     minWidth $ px 560.0
 

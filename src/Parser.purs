@@ -185,22 +185,3 @@ readNum cs =
     in n
 
 summation cs = let ns = map readNum cs in foldr (+) 0.0 ns
-
--- -- 文字列段階で式に干渉し、Int値と見做せる式をNumber値に解釈可能にするためのパーサー
--- exprString :: Parser String String
--- exprString  = buildExprParser [
---       [ Prefix (string"-" $> (\x -> "" <> x))]
---     , [ Infix (string "÷" $> (<>)) AssocRight]
---     , [ Infix (string "×" $> (<>)) AssocRight]
---     , [ Infix (string "-" $> (<>)) AssocRight]
---     , [ Infix (string "+" $> (<>)) AssocRight]
---     ] putPeriod <?> "expression"
-
--- putPeriod :: Parser String String
--- putPeriod = do
---   x <- digitNumber
---   Position pos <- position
---   let x' = show x
---   let n  = line pos
---   pure $ show x <> "."
-
