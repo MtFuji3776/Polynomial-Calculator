@@ -1,25 +1,17 @@
 module Main where
 
 import Data.Boolean
-import Halogen.HTML.CSS
-import Parser
-import Prelude
+import Halogen.HTML.CSS(stylesheet)
+import Parser(exprInt, exprNumber, includePeriod)
+import Prelude(class Eq, class Show, Unit, bind, discard, show, unit, ($), (&&), (-), (<>), (==))
 
-import Affjax as AX
-import Affjax.ResponseFormat as AXRF
 import Config (expo) as Config
 import Data.Array (foldr, zipWith)
 import Data.Either (Either(..), fromRight)
-import Data.Either (hush)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
-import Data.Number (fromString)
-import Data.String (singleton, uncons, length, take, drop, contains, dropWhile, null, Pattern(..))
-import Data.String.CodePoints (codePointFromChar)
+import Data.String (length, take, drop, null)
 import Effect (Effect)
-import Effect.Aff.Class (class MonadAff)
-import Effect.Class (class MonadEffect)
-import Effect.Console (log)
-import Effect.Random (random)
+import Effect.Aff.Class(class MonadAff)
 import Halogen (ClassName(..))
 import Halogen as H
 import Halogen.Aff (awaitBody, runHalogenAff) as HA
@@ -30,8 +22,6 @@ import Halogen.HTML.Properties as HP
 import Halogen.VDom.Driver (runUI)
 import StyleSheet (expo)
 import Text.Parsing.Parser (runParser)
-import Web.Event.Event (Event)
-import Web.Event.Event as Event
 
 --import Web.HTML.HTMLDocument (body)
 
@@ -95,19 +85,19 @@ data KindOfNumerals = IntNow | NumberNow
 
 derive instance eqKindOfNumerals :: Eq KindOfNumerals
 
-data StateOfFormula = Empty | NoEmpty
+data StateOfFormula = EmptyFM | NonEmptyFM
 
 derive instance eqStateOfFormula :: Eq StateOfFormula
 
-data StateOfNewInputs = Empty | Zero | ZeroPeriod | NoEmpty
+data StateOfNewInputs = EmptyNI | ZeroNI | ZeroPeriodNI | NonEmptyNI
 
 derive instance eqStateOfNewInputs :: Eq StateOfNewInputs
 
 type State = { formula     :: String
-             , stateFormula :: StateOfFormula
+             , stateOfFormula :: StateOfFormula
              , actOperator :: Maybe ActOperator
              , newInputs   :: String
-             , stateNewInputs :: StateOfNewInputs
+             , stateOfNewInputs :: StateOfNewInputs
              , positionOfPeriod :: PositionOfPeriod
              , numNow      :: KindOfNumerals
              , inputLog    :: Array {formula_::String, newInputs_ :: String}
@@ -126,8 +116,10 @@ component =
   
 initialState :: forall input . input -> State
 initialState _ = { formula:   ""
+                 , stateOfFormula: EmptyFM
                  , actOperator: Nothing
                  , newInputs: "0"
+                 , stateOfNewInputs: ZeroNI
                  , positionOfPeriod: NoExists
                  , numNow: IntNow
                  , inputLog:  []
@@ -137,6 +129,8 @@ initialState _ = { formula:   ""
 
 initialState_ = initialState 0
 
+-- 電卓のガワ
+  -- HTMLとCSSのデザインはこちらの方https://github.com/momoogles/calculatorのものを許可を得て拝借
 render :: forall m . State -> H.ComponentHTML Action () m
 render st =
   HHE.body [HP.id_ "index"] 
@@ -227,7 +221,6 @@ render st =
                 HHE.small_ [HH.text "(c) 2019 momoogles."]
               ]
 
-
         , stylesheet $ do
                         expo
                         Config.expo
@@ -252,10 +245,42 @@ evalFormula st =
     let zs = case st.actOperator of
               Nothing -> st.formula <> st.newInputs
               Just f  -> st.formula <> show f <> st.newInputs
-        zs' = if includePeriod zs
-                  then show $ fromRight 0.0 $ runParser zs exprNumber
-                  else show $ fromRight 0   $ runParser zs exprInt
+        zs' = case st.numNow of
+                  NumberNow -> show $ fromRight 0.0 $ runParser zs exprNumber
+                  IntNow    -> show $ fromRight 0   $ runParser zs exprInt
     in zs'
+
+-- 文字列の状態をStateのフラグに反映させる関数
+  -- フラグを直書きコードで書き直すくらいなら条件文使った方がマシ
+updateStateOfNewInputs :: State -> State
+updateStateOfNewInputs st
+  | null st.newInputs    = st{stateOfNewInputs = EmptyNI}
+  | st.newInputs == "0"  = st{stateOfNewInputs = ZeroNI}
+  | st.newInputs == "0." = st{stateOfNewInputs = ZeroPeriodNI}
+  | otherwise            = st{stateOfNewInputs = NonEmptyNI}
+
+updateStateOfFormula :: State -> State
+updateStateOfFormula st
+  | null st.formula = st{stateOfFormula = EmptyFM}
+  | otherwise       = st{stateOfFormula = NonEmptyFM}
+
+updatePositionOfPeriod :: State -> State
+updatePositionOfPeriod st
+  | last st.newInputs == "."   = st{positionOfPeriod = EndOfNI}   -- 二番目の述語の部分述語だが、ガードの先頭に置くと最初に判定されるのでこれで良い
+  | includePeriod st.newInputs = st{positionOfPeriod = MiddleOfNI}
+  | otherwise                  = st{positionOfPeriod = NoExists}
+
+-- 式の中に小数点があるかどうか判定するフラグの更新。
+  -- positionOfPeriodはnewInput内の小数点の情報しか出さないが、formula中の小数点の有無が問われる場面が僅かだが確実にありその時に必要。
+updateNumNow :: State -> State
+updateNumNow st =
+  let xs = st.formula <> st.newInputs
+  in if includePeriod xs then st{numNow = NumberNow} else st{numNow = IntNow}
+
+-- 四つのフラグ更新を合成して、一つの更新関数にする
+  -- formula,newInputs,positionOfPeriodに変動があるところでこれを使えば、適切にフラグが管理される。
+updateStates :: State -> State
+updateStates st = updateNumNow $ updatePositionOfPeriod $ updateStateOfFormula $ updateStateOfNewInputs $ st
 
 -- 電卓のとりうる状況からオートマトンを設計し、それをhandleActionに翻訳する
 -- なんと、handleActionをよく見れば、Actionを引数に取る関数である。
@@ -269,28 +294,33 @@ handleAction  = case _ of
           in case st.positionOfPeriod 
             of NoExists -> 
                 case st.actOperator of
-                  Nothing -> if ni == "0" 
-                              then st{newInputs = show x} -- niが"0"のときに文字が入力されると、それにとって変わられる
-                              else st{newInputs = st.newInputs <> show x} 
-                  Just f  -> st{newInputs = ni <> show x}
-               EndOfNI -> st{newInputs = ni <> show x, positionOfPeriod = MiddleOfNI}
+                  Nothing -> 
+                            case st.stateOfNewInputs of
+                            NonEmptyNI    -> st{newInputs = ni <> show x}
+                            ZeroNI        -> updateStates $ st{newInputs = show x}
+                            _            -> updateStates $ st{newInputs = "矛盾が起きたのでKeitoの金玉潰しまーす"}
+                  Just f  ->
+                    case st.stateOfFormula of
+                      EmptyFM -> st{formula = "Keitoの金玉渾身の蹴りで二つ同時に破裂させて女の子にしてやりたい"} 
+                      NonEmptyFM ->
+                            case st.stateOfNewInputs of
+                             EmptyNI -> updateStates $ st{newInputs = show x}
+                             ZeroNI -> updateStates $ st{newInputs = show x}
+                             _      -> st{newInputs = ni <> show x}
+               EndOfNI -> updateStates $ st{newInputs = ni <> show x, positionOfPeriod = MiddleOfNI}
                MiddleOfNI -> st{newInputs = ni <> show x}
         AO x -> H.modify_ \st ->
           let fm = st.formula
               ni = st.newInputs
           in case st.actOperator of
-              Nothing -> if null fm && ni == "0."  
-                          then st{formula = "0",newInputs = "",actOperator = Just x}
-                          else if null fm && ni == "0" 
-                                then st{formula = ni,newInputs = "",actOperator = Just x}
-                                else case st.positionOfPeriod of
-                                  EndOfNI  -> if includePeriod fm
-                                              then st{formula = fm <> init ni,newInputs = "",actOperator = Just x, numNow = NumberNow}
-                                              else st{formula = fm <> init ni,newInputs = "",actOperator = Just x, numNow = IntNow}
-                                  _        -> st{formula = fm <> ni ,newInputs = "", actOperator = Just x}
-              Just f  -> if null ni 
-                          then st{actOperator = Just x}
-                          else st{formula = evalFormula st,newInputs = "",actOperator = Just x}
+              Nothing -> case st.stateOfFormula of 
+                          EmptyFM -> case st.stateOfNewInputs of
+                            EmptyNI    -> updateStates $ st{formula = ni,newInputs = "Error!起こり得ないことが起きている！",actOperator = Just x}
+                            ZeroNI       -> updateStates $ st{formula = ni,newInputs = "",actOperator = Just x}
+                            ZeroPeriodNI -> updateStates $ st{formula = "0",newInputs = "",actOperator = Just x}
+                            NonEmptyNI   -> updateStates $ st{formula = ni,newInputs = "",actOperator = Just x}
+                          NonEmptyFM ->  st{formula = "Error!ここが見えるということは演算入力時の遷移がおかしい"}
+              Just f  -> st{actOperator = Just x}
         AS x -> H.modify_ \st -> 
             let fm = st.formula :: String
                 ni = st.newInputs :: String
@@ -305,23 +335,29 @@ handleAction  = case _ of
                         if null ni
                           then st
                           else case st.positionOfPeriod of
-                                EndOfNI    -> (evalState st{newInputs = init ni}){formula ="",actOperator = Nothing}
-                                _          -> (evalState st){formula ="",actOperator = Nothing}                                
+                                EndOfNI    -> updateStates $ (evalState st{newInputs = init ni}){formula ="",actOperator = Nothing}
+                                _          -> updateStates $ (evalState st){formula ="",actOperator = Nothing}                                
                   AC    -> initialState_
                   Period-> 
                         case st.positionOfPeriod of
                             NoExists   -> case st.actOperator of
-                                           Nothing -> st{newInputs = ni <> show x,positionOfPeriod = EndOfNI,numNow = NumberNow}
+                                           Nothing -> updateStates $ st{newInputs = ni <> show x,positionOfPeriod = EndOfNI,numNow = NumberNow}
                                            Just f -> case st.numNow of
-                                                      NumberNow -> if null ni 
-                                                        then st 
-                                                        else if null fm
-                                                          then st
-                                                          else st{newInputs = ni <> show x,positionOfPeriod = EndOfNI}
-                                                      IntNow    -> if null ni then st else st{newInputs = ni <> show x,positionOfPeriod = EndOfNI,numNow = NumberNow}
-                            EndOfNI    -> if includePeriod fm 
-                                          then st{newInputs = init ni, positionOfPeriod = NoExists} 
-                                          else st{newInputs = init ni, positionOfPeriod = NoExists, numNow = IntNow}
+                                                      NumberNow -> 
+                                                        case st.stateOfFormula of
+                                                          EmptyFM     -> st
+                                                          NonEmptyFM  -> 
+                                                            case st.stateOfNewInputs of
+                                                              ZeroPeriodNI -> updateStates $ st{newInputs= init ni <> show x}
+                                                              EmptyNI      -> st
+                                                              _            -> updateStates $ st{newInputs= ni <> show x}
+                                                      IntNow    -> 
+                                                        case st.stateOfNewInputs of
+                                                          EmptyNI    -> updateStates $ st{newInputs = "Keitoの金玉潰したい" <> show x}
+                                                          ZeroNI     -> updateStates $ st{newInputs = ni <> show x}
+                                                          NonEmptyNI -> updateStates $ st{newInputs = ni <> show x}
+                                                          _          -> st{newInputs = "Error!この状態はあり得ないはず"}
+                            EndOfNI    -> updateStates $ st{newInputs = init ni}
                             MiddleOfNI -> st
                   _     -> st -- ToDo: "C"ボタンの実装。その後は多項式生成の方法を考える。
       
