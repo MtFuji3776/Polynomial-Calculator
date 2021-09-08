@@ -298,10 +298,10 @@ handleAction  = case _ of
                             case st.stateOfNewInputs of
                             NonEmptyNI    -> st{newInputs = ni <> show x}
                             ZeroNI        -> updateStates $ st{newInputs = show x}
-                            _            -> updateStates $ st{newInputs = "矛盾が起きたのでKeitoの金玉潰しまーす"}
+                            _            -> updateStates $ st{newInputs = "Error!矛盾"}
                   Just f  ->
                     case st.stateOfFormula of
-                      EmptyFM -> st{formula = "Keitoの金玉渾身の蹴りで二つ同時に破裂させて女の子にしてやりたい"} 
+                      EmptyFM -> st{formula = "Error!何かがおかしい"} 
                       NonEmptyFM ->
                             case st.stateOfNewInputs of
                              EmptyNI -> updateStates $ st{newInputs = show x}
@@ -353,7 +353,7 @@ handleAction  = case _ of
                                                               _            -> updateStates $ st{newInputs= ni <> show x}
                                                       IntNow    -> 
                                                         case st.stateOfNewInputs of
-                                                          EmptyNI    -> updateStates $ st{newInputs = "Keitoの金玉潰したい" <> show x}
+                                                          EmptyNI    -> updateStates $ st{newInputs = "Error!お前は誰だ" <> show x}
                                                           ZeroNI     -> updateStates $ st{newInputs = ni <> show x}
                                                           NonEmptyNI -> updateStates $ st{newInputs = ni <> show x}
                                                           _          -> st{newInputs = "Error!この状態はあり得ないはず"}
