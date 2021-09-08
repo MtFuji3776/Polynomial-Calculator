@@ -29,9 +29,9 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.VDom.Driver (runUI)
 import StyleSheet (expo)
+import Text.Parsing.Parser (runParser)
 import Web.Event.Event (Event)
 import Web.Event.Event as Event
-import Text.Parsing.Parser(runParser)
 
 --import Web.HTML.HTMLDocument (body)
 
@@ -91,10 +91,25 @@ data PositionOfPeriod = NoExists | MiddleOfNI | EndOfNI
 
 derive instance eqPositionOfPEriod :: Eq PositionOfPeriod 
 
+data KindOfNumerals = IntNow | NumberNow
+
+derive instance eqKindOfNumerals :: Eq KindOfNumerals
+
+data StateOfFormula = Empty | NoEmpty
+
+derive instance eqStateOfFormula :: Eq StateOfFormula
+
+data StateOfNewInputs = Empty | Zero | ZeroPeriod | NoEmpty
+
+derive instance eqStateOfNewInputs :: Eq StateOfNewInputs
+
 type State = { formula     :: String
+             , stateFormula :: StateOfFormula
              , actOperator :: Maybe ActOperator
              , newInputs   :: String
+             , stateNewInputs :: StateOfNewInputs
              , positionOfPeriod :: PositionOfPeriod
+             , numNow      :: KindOfNumerals
              , inputLog    :: Array {formula_::String, newInputs_ :: String}
              , counter     :: Int
              , evalLog     :: Array Int
@@ -114,6 +129,7 @@ initialState _ = { formula:   ""
                  , actOperator: Nothing
                  , newInputs: "0"
                  , positionOfPeriod: NoExists
+                 , numNow: IntNow
                  , inputLog:  []
                  , counter:    0
                  , evalLog:   []
@@ -154,9 +170,9 @@ render st =
                                         ni = st.newInputs
                                       in if fm == "" && ni == "0" 
                                         then ni
-                                        else if ni == "+" || ni == "-" || ni == "×" || ni == "÷"
-                                          then fm <> ni
-                                          else fm <> ni
+                                        else case st.actOperator of
+                                              Nothing -> fm <> ni
+                                              Just f  -> fm <> show f <> ni
                         ]
                       , HHE.div [HP.class_$ ClassName "howcal_display"] []
                       ]
@@ -218,52 +234,9 @@ render st =
         ]
         
     ]
--- 電卓のとりうる状況からオートマトンを設計し、それをhandleActionに翻訳する
-  -- これはStateの状態がq0であることを判定する述語。
-q0 x y = x == "" && y == "0" && not (includePeriod $ x<>y)
-  -- 状態がq1であることを判定。
-q1 x y = x == "" && (not (y == "0" || y == "")) && not (includePeriod $ x <> y)
-  -- q2は、式が評価可能であるときに＝を押した場合に遷移する状態。
-q2 x y = (not (x == "")) && y == "" && not (includePeriod $ x <> y)
--- q3は、formula,newInputsともに空列ではない状態。演算記号を入力し、さらに第二引数を入力している途中の状態である。
-q3 x y = not (x == "" || y == "") && not (includePeriod $ x <> y)
--- q4は
-q4 x y = (not (x == "")) && (y == "+" || y == "-" || y == "×" || y == "÷") && not (includePeriod $ x <> y)
-
-q5 x y = (not (x == "")) && (y == "0") && not (includePeriod $ x <> y)
 
 last :: String -> String
 last xs = let n = length xs in drop (n-1) xs
--- 以下は入力列の中にピリオドが含まれる場合の状態たち。
-q1' x y = x == "" && y == "0." -- 初期状態の直後にピリオドが入力された状態
-
--- 開始後、演算記号を打ち込むより先にピリオドが打たれた状態
-q2' x y = x == "" && includePeriod y
-
--- 一回以上演算記号が押され、かつ現在入力中の数の末尾がピリオドの状態
-  -- 次のq4'の部分状態だが、この状況でピリオドやイコールを押した場合の挙動を定義しなければならないので用意する意味がある。
-q3' x y = not (x == "") && isEndPeriod y
-
--- 一回以上演算記号が押され、かつ現在入力中の数は小数である状態
-q4' x y = not (null x) && includePeriod y
-
--- 演算記号または等号を押したため、状態がまとまってて現在入力中の数が存在しない状態。
-q5' x y = includePeriod x && null y
-
--- 最後に演算記号を打ったよりも前にピリオドを打っており、さらに今打っている数もピリオドを含んでいる状態。
-q6' x y = includePeriod x && includePeriod y -- 条件として一番ゆるい述語。q7',q9',q4'など他の状態を含んでいるので、これはガードの一番最後に回すべき。
-
--- 現在入力中の数の末尾はピリオドである。q3'のサブ状態だが、これを用意する意図はなんだろうか？q3'で代用できるのでは？
-q7' x y = includePeriod x && isEndPeriod y
-
--- q3'の対になる主張。これはq6'、q7'より更に守備範囲が広い。ガードの末尾へ。
-q8' x y = includePeriod x && not (null y)
-
--- 重要。今まで打った数が小数であり、かつ今の時点で演算記号を打ち込んでいる。
-q9' x y = includePeriod x && isOperators y
-
--- 演算記号を押すまでは少数を打っていたが、今打っている数は整数である状態（パーサーの改良によりこれは不要かも？）
-q10' x y = includePeriod x && not (includePeriod y)
 
 -- 状態遷移コンビネータたち
   -- handleActionはこれらを組み合わせて定義する
@@ -271,31 +244,20 @@ q10' x y = includePeriod x && not (includePeriod y)
 init :: String -> String
 init xs = let n = length xs in take (n-1) xs
 
-
-appendInput st x = let ni = st.newInputs in st{newInputs = ni <> show x}
-
-appendFM st = st{formula = st.formula <> st.newInputs}
-
-cutEndOfNI st = st{newInputs = init st.newInputs}
-
-evalState st = st{formula = evalFormula st}
-
-putInput st x = st{newInputs = show x}
-
-resetFM st = st{formula = ""}
-
-resetNI st = st{newInputs = ""}
-
-
-
+evalState :: State -> State
+evalState st = st{newInputs = evalFormula st}
 
 evalFormula :: State -> String
 evalFormula st =
-    let zs = st.formula <> st.newInputs
+    let zs = case st.actOperator of
+              Nothing -> st.formula <> st.newInputs
+              Just f  -> st.formula <> show f <> st.newInputs
         zs' = if includePeriod zs
                   then show $ fromRight 0.0 $ runParser zs exprNumber
                   else show $ fromRight 0   $ runParser zs exprInt
     in zs'
+
+-- 電卓のとりうる状況からオートマトンを設計し、それをhandleActionに翻訳する
 -- なんと、handleActionをよく見れば、Actionを引数に取る関数である。
   -- StateとActionをオートマトンと見做す時、handleActionは遷移関数に相当するが、その定義を入力文字別に場合分けして書き下すことが義務付けられているということ。
   -- 正直Stateベースで場合分けする方が書きやすい…
@@ -304,95 +266,64 @@ handleAction  = case _ of
         AN x -> H.modify_ \st -> 
           let fm = st.formula
               ni = st.newInputs
-          in if not $ includePeriod $ fm <> ni -- fm,niのどちらにもピリオドが含まれない時。このとき数はIntとして計算される
-              then 
-                let nextState
-                      | q0 fm ni = putInput st x
-                      | q5 fm ni = putInput st x
-                      | q1 fm ni = appendInput st x
-                      | q4 fm ni = flip putInput x $ appendFM st 
-                      | q2 fm ni = st{formula = "", newInputs = fm <> show x} -- レア
-                      | otherwise = appendInput st x
-                in nextState
-              else -- そうでなければ数はNumberとして処理される。
-                let nextState 
-                      | q1' fm ni = appendInput st x
-                      | q2' fm ni = appendInput st x
-                      | q5' fm ni = st{formula = "",newInputs = fm <> show x} -- レアパターンなので直書き
-                      | q9' fm ni = flip putInput x $ appendFM st
-                      | q4' fm ni = appendInput st x
-                      | q3' fm ni = appendInput st x
-                      | q7' fm ni = appendInput st x
-                      | q8' fm ni = appendInput st x
-                      | q6' fm ni = appendInput st x
-                      | otherwise = st
-                in nextState
+          in case st.positionOfPeriod 
+            of NoExists -> 
+                case st.actOperator of
+                  Nothing -> if ni == "0" 
+                              then st{newInputs = show x} -- niが"0"のときに文字が入力されると、それにとって変わられる
+                              else st{newInputs = st.newInputs <> show x} 
+                  Just f  -> st{newInputs = ni <> show x}
+               EndOfNI -> st{newInputs = ni <> show x, positionOfPeriod = MiddleOfNI}
+               MiddleOfNI -> st{newInputs = ni <> show x}
         AO x -> H.modify_ \st ->
           let fm = st.formula
               ni = st.newInputs
-          in  let  putInput' = flip putInput
-                   nextState
-                      -- 以下、fmまたはniどちらかにピリオドが含まれる場合の遷移
-                      | q1' fm ni = flip appendInput x $ resetNI $ appendFM $ cutEndOfNI st
-                      | q2' fm ni = putInput' x $ appendFM $ st
-                      | q5' fm ni = putInput' x $ appendFM st
-                      | q9' fm ni = putInput' x st 
-                      | q3' fm ni = putInput' x $ evalState st
-                      | q6' fm ni = putInput' x $ evalState st
-                      | q4' fm ni = putInput' x $ appendFM st
-                      | q7' fm ni = putInput' x $ appendFM $ cutEndOfNI st
-                      | q8' fm ni = putInput' x $ appendFM st
-                      | q0 fm ni = flip putInput x $ appendFM st
-                      | q1 fm ni = flip putInput x $ evalState st
-                      | q5 fm ni = flip putInput x $ appendFM st
-                      | q4 fm ni = putInput st x 
-                      | q2 fm ni = putInput st x
-                      | q3 fm ni = flip putInput x $ evalState st
-                      | otherwise = st
-              in nextState
+          in case st.actOperator of
+              Nothing -> if null fm && ni == "0."  
+                          then st{formula = "0",newInputs = "",actOperator = Just x}
+                          else if null fm && ni == "0" 
+                                then st{formula = ni,newInputs = "",actOperator = Just x}
+                                else case st.positionOfPeriod of
+                                  EndOfNI  -> if includePeriod fm
+                                              then st{formula = fm <> init ni,newInputs = "",actOperator = Just x, numNow = NumberNow}
+                                              else st{formula = fm <> init ni,newInputs = "",actOperator = Just x, numNow = IntNow}
+                                  _        -> st{formula = fm <> ni ,newInputs = "", actOperator = Just x}
+              Just f  -> if null ni 
+                          then st{actOperator = Just x}
+                          else st{formula = evalFormula st,newInputs = "",actOperator = Just x}
         AS x -> H.modify_ \st -> 
             let fm = st.formula :: String
                 ni = st.newInputs :: String
-            in
-                case x of 
+            in case x of 
                   Equal ->
-                    let nextState
-                          | q1' fm ni = cutEndOfNI st
-                          | q2' fm ni = st
-                          | q9' fm ni = st
-                          | q3' fm ni = cutEndOfNI st
-                          | q4' fm ni = resetNI $ appendFM st
-                          | q5' fm ni = st
-                          | q6' fm ni = resetNI $ evalState st
-                          | q7' fm ni = resetNI $ evalState  st
-                          | q8' fm ni = resetNI $ evalState st
-                          | q0  fm ni = st
-                          | q1 fm ni = st
-                          | q2 fm ni = st
-                          | q4 fm ni = st
-                          | q3  fm ni = resetNI $ evalState st
-                          | otherwise = evalState st
-                    in nextState
+                    case st.actOperator of
+                      Nothing ->
+                        case st.positionOfPeriod of
+                          EndOfNI    -> st{newInputs = init ni}
+                          _          -> st
+                      Just f ->
+                        if null ni
+                          then st
+                          else case st.positionOfPeriod of
+                                EndOfNI    -> (evalState st{newInputs = init ni}){formula ="",actOperator = Nothing}
+                                _          -> (evalState st){formula ="",actOperator = Nothing}                                
                   AC    -> initialState_
                   Period-> 
-                    let nextState
-                          | q1' fm ni = cutEndOfNI st
-                          | q2' fm ni = st
-                          | q9' fm ni = st
-                          | q3' fm ni = cutEndOfNI st
-                          | q4' fm ni = st
-                          | q5' fm ni = st
-                          | q6' fm ni = st
-                          | q7' fm ni = cutEndOfNI st
-                          | q8' fm ni = appendInput st x
-                          | q4 fm ni  = st
-                          | q0 fm ni  = appendInput st x
-                          | q1 fm ni  = appendInput st x
-                          | q2 fm ni  = appendInput st x
-                          | q3 fm ni  = appendInput st x 
-                          | otherwise = st
-                    in nextState
-                  _     -> st
+                        case st.positionOfPeriod of
+                            NoExists   -> case st.actOperator of
+                                           Nothing -> st{newInputs = ni <> show x,positionOfPeriod = EndOfNI,numNow = NumberNow}
+                                           Just f -> case st.numNow of
+                                                      NumberNow -> if null ni 
+                                                        then st 
+                                                        else if null fm
+                                                          then st
+                                                          else st{newInputs = ni <> show x,positionOfPeriod = EndOfNI}
+                                                      IntNow    -> if null ni then st else st{newInputs = ni <> show x,positionOfPeriod = EndOfNI,numNow = NumberNow}
+                            EndOfNI    -> if includePeriod fm 
+                                          then st{newInputs = init ni, positionOfPeriod = NoExists} 
+                                          else st{newInputs = init ni, positionOfPeriod = NoExists, numNow = IntNow}
+                            MiddleOfNI -> st
+                  _     -> st -- ToDo: "C"ボタンの実装。その後は多項式生成の方法を考える。
       
       
 --           let fm = st.formula
