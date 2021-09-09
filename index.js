@@ -3309,6 +3309,12 @@ var PS = {};
   var valSize = new CSS_Property.Val(function (v) {
       return v;
   });
+  var unitless = (function () {
+      var $32 = CSS_Property.value(CSS_Property.valNumber);
+      return function ($33) {
+          return Size($32($33));
+      };
+  })();
   var px = function (i) {
       return Data_Semigroup.append(CSS_Property.semigroupValue)(CSS_Property.value(CSS_Property.valNumber)(i))(CSS_String.fromString(CSS_Property.isStringValue)("px"));
   };                                                                     
@@ -3319,6 +3325,7 @@ var PS = {};
       };
   })());
   var autoSize = new CSS_Common.Auto(CSS_String.fromString(isStringSize)("auto"));
+  exports["unitless"] = unitless;
   exports["px"] = px;
   exports["valSize"] = valSize;
   exports["autoSize"] = autoSize;
@@ -4904,7 +4911,7 @@ var PS = {};
               return Control_Bind.discard(Control_Bind.discardUnit)(CSS_Stylesheet.bindStyleM)(CSS_Background.backgroundColor(Color.white))(function () {
                   return Control_Bind.discard(Control_Bind.discardUnit)(CSS_Stylesheet.bindStyleM)(CSS_Font.color(Color.black))(function () {
                       return Control_Bind.discard(Control_Bind.discardUnit)(CSS_Stylesheet.bindStyleM)(CSS_Font.fontSize(CSS_Size.px(15.0)))(function () {
-                          return CSS_Geometry.lineHeight(CSS_Size.px(2.0));
+                          return CSS_Geometry.lineHeight(CSS_Size.unitless(2.0));
                       });
                   });
               });

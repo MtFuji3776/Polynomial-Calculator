@@ -9,6 +9,7 @@ import CSS.Font
 import CSS.TextAlign
 import CSS.Text
 import CSS.VerticalAlign(verticalAlign,textBottom)
+import CSS.Size(unitless)
 
 
 expo :: CSS
@@ -29,7 +30,7 @@ body = element "body" ? do
     backgroundColor white
     color black
     fontSize $ px 15.0
-    lineHeight $ px 2.0
+    lineHeight $ unitless 2.0
 
 img :: CSS
 img = element "img" ? verticalAlign textBottom
@@ -48,7 +49,7 @@ ul = element "ul" ? do
 
 a :: CSS
 a = element "a" ? do
-    color black
+    color white
     textDecoration noneTextDecoration
 
 aHover :: CSS

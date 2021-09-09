@@ -1,9 +1,6 @@
 module Main where
 
 import Data.Boolean
-import Halogen.HTML.CSS(stylesheet)
-import Parser(exprInt, exprNumber, includePeriod)
-import Prelude(class Eq, class Show, Unit, bind, discard, show, unit, ($), (&&), (-), (<>), (==))
 
 import Config (expo) as Config
 import Data.Array (foldr, zipWith)
@@ -11,15 +8,18 @@ import Data.Either (Either(..), fromRight)
 import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.String (length, take, drop, null)
 import Effect (Effect)
-import Effect.Aff.Class(class MonadAff)
+import Effect.Aff.Class (class MonadAff)
 import Halogen (ClassName(..))
 import Halogen as H
 import Halogen.Aff (awaitBody, runHalogenAff) as HA
 import Halogen.HTML as HH
+import Halogen.HTML.CSS (stylesheet)
 import Halogen.HTML.Elements as HHE
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.VDom.Driver (runUI)
+import Parser (exprInt, exprNumber, includePeriod)
+import Prelude (class Eq, class Show, Unit, bind, discard, show, unit, ($), (&&), (-), (<>), (==))
 import StyleSheet (expo)
 import Text.Parsing.Parser (runParser)
 
@@ -96,6 +96,7 @@ derive instance eqStateOfNewInputs :: Eq StateOfNewInputs
 type State = { formula     :: String
              , stateOfFormula :: StateOfFormula
              , actOperator :: Maybe ActOperator
+             , isMinus     :: Boolean
              , newInputs   :: String
              , stateOfNewInputs :: StateOfNewInputs
              , positionOfPeriod :: PositionOfPeriod
@@ -118,6 +119,7 @@ initialState :: forall input . input -> State
 initialState _ = { formula:   ""
                  , stateOfFormula: EmptyFM
                  , actOperator: Nothing
+                 , isMinus: false
                  , newInputs: "0"
                  , stateOfNewInputs: ZeroNI
                  , positionOfPeriod: NoExists
@@ -285,10 +287,15 @@ updateNumNow st =
   let xs = st.formula <> st.newInputs
   in if includePeriod xs then st{numNow = NumberNow} else st{numNow = IntNow}
 
+
 -- 四つのフラグ更新を合成して、一つの更新関数にする
   -- formula,newInputs,positionOfPeriodに変動があるところでこれを使えば、適切にフラグが管理される。
 updateStates :: State -> State
 updateStates st = updateNumNow $ updatePositionOfPeriod $ updateStateOfFormula $ updateStateOfNewInputs $ st
+
+-- isMinusフラグを初期化する
+resetIsMinus :: State -> State
+resetIsMinus st = st{isMinus = false}
 
 -- 電卓のとりうる状況からオートマトンを設計し、それをhandleActionに翻訳する
 -- なんと、handleActionをよく見れば、Actionを引数に取る関数である。
@@ -320,15 +327,16 @@ handleAction  = case _ of
         AO x -> H.modify_ \st ->
           let fm = st.formula
               ni = st.newInputs
-          in case st.actOperator of
-              Nothing -> case st.stateOfFormula of 
-                          EmptyFM -> case st.stateOfNewInputs of
-                            EmptyNI    -> updateStates $ st{formula = ni,newInputs = "Error!起こり得ないことが起きている！",actOperator = Just x}
-                            ZeroNI       -> updateStates $ st{formula = ni,newInputs = "",actOperator = Just x}
-                            ZeroPeriodNI -> updateStates $ st{formula = "0",newInputs = "",actOperator = Just x}
-                            NonEmptyNI   -> updateStates $ st{formula = ni,newInputs = "",actOperator = Just x}
-                          NonEmptyFM ->  st{formula = "Error!ここが見えるということは演算入力時の遷移がおかしい"}
-              Just f  -> st{actOperator = Just x}
+          in
+              case st.actOperator of
+               Nothing -> case st.stateOfFormula of 
+                           EmptyFM -> case st.stateOfNewInputs of
+                             EmptyNI    -> updateStates $ st{formula = ni,newInputs = "Error!起こり得ないことが起きている！",actOperator = Just x}
+                             ZeroNI       -> updateStates $ st{formula = ni,newInputs = "",actOperator = Just x}
+                             ZeroPeriodNI -> updateStates $ st{formula = "0",newInputs = "",actOperator = Just x}
+                             NonEmptyNI   -> updateStates $ st{formula = ni,newInputs = "",actOperator = Just x}
+                           NonEmptyFM ->  st{formula = "Error!ここが見えるということは演算入力時の遷移がおかしい"}
+               Just f  -> st{actOperator = Just x}
         AS x -> H.modify_ \st -> 
             let fm = st.formula :: String
                 ni = st.newInputs :: String
