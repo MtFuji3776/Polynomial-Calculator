@@ -128,15 +128,22 @@ digitNumber =
     in numberstr <?> "digit" -- オルタナは左を優先的に調べるので、先にIntがマッチングする不具合は防げるはず
     -- オルタナティブが仕事してくれてないのは何故なのか？
 
+-- termInt :: Parser String Int
+-- termInt = digitInt <|> (parens exprInt)
 
-exprInt :: Parser String Int
-exprInt = buildExprParser [
+
+term = digitInt <|> parens exprInt
+
+exprInt' :: Parser String Int
+exprInt' = buildExprParser [
       [ Prefix (string "-" $> negate) ]
     , [ Infix (string "÷" $> div) AssocRight]
     , [ Infix (string "×" $> mul) AssocRight]
     , [ Infix (string "-" $> sub) AssocRight]
     , [ Infix (string "+" $> add) AssocRight]
     ] digitInt <?> "expression"
+
+exprInt = exprInt'
 
 exprNumber :: Parser String Number
 exprNumber  = buildExprParser [
@@ -149,6 +156,7 @@ exprNumber  = buildExprParser [
 
 
 --runExprs :: Num a => String -> Parser String a -> Either ParseError a
+
 runExprs xs expr = runParser xs expr
 
 runExprInt xs = runExprs xs exprInt

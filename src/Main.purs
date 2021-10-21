@@ -336,7 +336,7 @@ handleAction  = case _ of
                              ZeroPeriodNI -> updateStates $ st{formula = "0",newInputs = "",actOperator = Just x}
                              NonEmptyNI   -> updateStates $ st{formula = ni,newInputs = "",actOperator = Just x}
                            NonEmptyFM ->  st{formula = "Error!ここが見えるということは演算入力時の遷移がおかしい"}
-               Just f  -> st{actOperator = Just x}
+               Just f  -> updateStates $ st{formula = "(" <> fm <> show f <> ni <> ")",actOperator = Just x,newInputs = ""}
         AS x -> H.modify_ \st -> 
             let fm = st.formula :: String
                 ni = st.newInputs :: String
@@ -369,7 +369,7 @@ handleAction  = case _ of
                                                               _            -> updateStates $ st{newInputs= ni <> show x}
                                                       IntNow    -> 
                                                         case st.stateOfNewInputs of
-                                                          EmptyNI    -> updateStates $ st{newInputs = "Error!お前は誰だ" <> show x}
+                                                          EmptyNI    -> st
                                                           ZeroNI     -> updateStates $ st{newInputs = ni <> show x}
                                                           NonEmptyNI -> updateStates $ st{newInputs = ni <> show x}
                                                           _          -> st{newInputs = "Error!この状態はあり得ないはず"}
