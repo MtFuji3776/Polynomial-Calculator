@@ -273,7 +273,7 @@ isIncludingNumberNumeral (Operator x y z) = isIncludingNumberNumeral y || isIncl
 
 allNumberNumeralify :: Formula String -> Formula String
 allNumberNumeralify InitialTerm    = NumberNumeral "0.0"
-allNumberNumeralify (IntNumeral x) = NumberNumeral x
+allNumberNumeralify (IntNumeral x) = NumberNumeral $ x <> ".0"
 allNumberNumeralify (NumberNumeral x) = NumberNumeral x
 allNumberNumeralify (Operator x y z)  = Operator x (allNumberNumeralify y) (allNumberNumeralify z)
 
