@@ -1581,23 +1581,6 @@ var PS = {};
     return isNaN(str + ".0") ? str : str + ".0";
   };
 
-  exports.showCharImpl = function (c) {
-    var code = c.charCodeAt(0);
-    if (code < 0x20 || code === 0x7F) {
-      switch (c) {
-        case "\x07": return "'\\a'";
-        case "\b": return "'\\b'";
-        case "\f": return "'\\f'";
-        case "\n": return "'\\n'";
-        case "\r": return "'\\r'";
-        case "\t": return "'\\t'";
-        case "\v": return "'\\v'";
-      }
-      return "'\\" + code.toString(10) + "'";
-    }
-    return c === "'" || c === "\\" ? "'\\" + c + "'" : "'" + c + "'";
-  };
-
   exports.showStringImpl = function (s) {
     var l = s.length;
     return "\"" + s.replace(
@@ -1634,7 +1617,6 @@ var PS = {};
   var showString = new Show($foreign.showStringImpl);
   var showNumber = new Show($foreign.showNumberImpl);
   var showInt = new Show($foreign.showIntImpl);
-  var showChar = new Show($foreign.showCharImpl);
   var show = function (dict) {
       return dict.show;
   };
@@ -1642,7 +1624,6 @@ var PS = {};
   exports["show"] = show;
   exports["showInt"] = showInt;
   exports["showNumber"] = showNumber;
-  exports["showChar"] = showChar;
   exports["showString"] = showString;
 })(PS);
 (function(exports) {
@@ -12238,18 +12219,8 @@ var PS = {};
           };
       };
   };
-  var $$char = function (dictStringLike) {
-      return function (dictMonad) {
-          return function (c) {
-              return Text_Parsing_Parser_Combinators.withErrorMessage(dictMonad)(satisfy(dictStringLike)(dictMonad)(function (v) {
-                  return v === c;
-              }))(Data_Show.show(Data_Show.showChar)(c));
-          };
-      };
-  };
   exports["string"] = string;
   exports["satisfy"] = satisfy;
-  exports["char"] = $$char;
   exports["stringLikeString"] = stringLikeString;
 })(PS);
 (function($PS) {
@@ -12284,7 +12255,6 @@ var PS = {};
   var Data_Array = $PS["Data.Array"];
   var Data_Boolean = $PS["Data.Boolean"];
   var Data_Char = $PS["Data.Char"];
-  var Data_Either = $PS["Data.Either"];
   var Data_EuclideanRing = $PS["Data.EuclideanRing"];
   var Data_Foldable = $PS["Data.Foldable"];
   var Data_Functor = $PS["Data.Functor"];
@@ -12303,6 +12273,11 @@ var PS = {};
   var Text_Parsing_Parser_Expr = $PS["Text.Parsing.Parser.Expr"];
   var Text_Parsing_Parser_String = $PS["Text.Parsing.Parser.String"];
   var Text_Parsing_Parser_Token = $PS["Text.Parsing.Parser.Token"];
+  var runExprs = function (xs) {
+      return function (expr) {
+          return Text_Parsing_Parser.runParser(xs)(expr);
+      };
+  };
   var readChar = function (c) {
       var c$prime = Data_Char.toCharCode(c);
       return c$prime - 48 | 0;
@@ -12363,30 +12338,6 @@ var PS = {};
   var listToString = function (l) {
       return Data_String_CodeUnits.fromCharArray(Data_Array.fromFoldable(Data_List_Types.foldableNonEmptyList)(l));
   };
-  var isNumber = function (xs) {
-      var p = Control_Bind.bind(Text_Parsing_Parser.bindParserT(Data_Identity.monadIdentity))(many1(Data_Identity.monadIdentity)(Text_Parsing_Parser_String.satisfy(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)(function (x) {
-          return !(x === ".");
-      })))(function () {
-          return Control_Bind.bind(Text_Parsing_Parser.bindParserT(Data_Identity.monadIdentity))(Text_Parsing_Parser_String["char"](Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("."))(function (x) {
-              return Control_Bind.bind(Text_Parsing_Parser.bindParserT(Data_Identity.monadIdentity))(Data_List.many(Text_Parsing_Parser.alternativeParserT(Data_Identity.monadIdentity))(Text_Parsing_Parser.lazyParserT)(Text_Parsing_Parser_String.satisfy(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)(function (x1) {
-                  return !(x1 === ".");
-              })))(function () {
-                  return Control_Applicative.pure(Text_Parsing_Parser.applicativeParserT(Data_Identity.monadIdentity))(x);
-              });
-          });
-      });
-      var rslt = Text_Parsing_Parser.runParser(xs)(p);
-      if (rslt instanceof Data_Either.Left) {
-          return false;
-      };
-      if (rslt instanceof Data_Either.Right) {
-          return true;
-      };
-      throw new Error("Failed pattern match at Parser (line 76, column 8 - line 78, column 24): " + [ rslt.constructor.name ]);
-  }; 
-  var includePeriod = function (xs) {
-      return isNumber(xs);
-  };
   var digitInt = Data_Functor.map(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(function (x) {
       return readInt(Data_List_Types.toList(x));
   })(many1(Data_Identity.monadIdentity)(Text_Parsing_Parser_Token.digit(Data_Identity.monadIdentity)));
@@ -12406,11 +12357,16 @@ var PS = {};
       return Text_Parsing_Parser_Combinators.withErrorMessage(Data_Identity.monadIdentity)(numberstr)("digit");
   })();
   var exprNumber = Text_Parsing_Parser_Combinators.withErrorMessage(Data_Identity.monadIdentity)(Text_Parsing_Parser_Expr.buildExprParser(Data_Identity.monadIdentity)([ [ new Text_Parsing_Parser_Expr.Prefix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("-"))(Data_Ring.negate(Data_Ring.ringNumber))) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("\xf7"))(Data_EuclideanRing.div(Data_EuclideanRing.euclideanRingNumber)), Text_Parsing_Parser_Expr.AssocRight.value) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("\xd7"))(Data_Semiring.mul(Data_Semiring.semiringNumber)), Text_Parsing_Parser_Expr.AssocRight.value) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("-"))(Data_Ring.sub(Data_Ring.ringNumber)), Text_Parsing_Parser_Expr.AssocRight.value) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("+"))(Data_Semiring.add(Data_Semiring.semiringNumber)), Text_Parsing_Parser_Expr.AssocRight.value) ] ])(digitNumber))("expression");
+  var runExprNumber = function (xs) {
+      return Text_Parsing_Parser.runParser(xs)(exprNumber);
+  };
   var exprInt$prime = Text_Parsing_Parser_Combinators.withErrorMessage(Data_Identity.monadIdentity)(Text_Parsing_Parser_Expr.buildExprParser(Data_Identity.monadIdentity)([ [ new Text_Parsing_Parser_Expr.Prefix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("-"))(Data_Ring.negate(Data_Ring.ringInt))) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("\xf7"))(Data_EuclideanRing.div(Data_EuclideanRing.euclideanRingInt)), Text_Parsing_Parser_Expr.AssocRight.value) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("\xd7"))(Data_Semiring.mul(Data_Semiring.semiringInt)), Text_Parsing_Parser_Expr.AssocRight.value) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("-"))(Data_Ring.sub(Data_Ring.ringInt)), Text_Parsing_Parser_Expr.AssocRight.value) ], [ new Text_Parsing_Parser_Expr.Infix(Data_Functor.voidLeft(Text_Parsing_Parser.functorParserT(Data_Identity.functorIdentity))(Text_Parsing_Parser_String.string(Text_Parsing_Parser_String.stringLikeString)(Data_Identity.monadIdentity)("+"))(Data_Semiring.add(Data_Semiring.semiringInt)), Text_Parsing_Parser_Expr.AssocRight.value) ] ])(digitInt))("expression");
   var exprInt = exprInt$prime;
-  exports["exprInt"] = exprInt;
-  exports["exprNumber"] = exprNumber;
-  exports["includePeriod"] = includePeriod;
+  var runExprInt = function (xs) {
+      return runExprs(xs)(exprInt);
+  };
+  exports["runExprInt"] = runExprInt;
+  exports["runExprNumber"] = runExprNumber;
 })(PS);
 (function($PS) {
   // Generated by purs version 0.14.3
@@ -12597,10 +12553,9 @@ var PS = {};
   var Data_Boolean = $PS["Data.Boolean"];
   var Data_Either = $PS["Data.Either"];
   var Data_Eq = $PS["Data.Eq"];
-  var Data_Maybe = $PS["Data.Maybe"];
+  var Data_Functor = $PS["Data.Functor"];
   var Data_Show = $PS["Data.Show"];
   var Data_String_CodePoints = $PS["Data.String.CodePoints"];
-  var Data_String_Common = $PS["Data.String.Common"];
   var Data_Unit = $PS["Data.Unit"];
   var Effect_Aff = $PS["Effect.Aff"];
   var Effect_Aff_Class = $PS["Effect.Aff.Class"];
@@ -12614,85 +12569,7 @@ var PS = {};
   var Halogen_Query_HalogenM = $PS["Halogen.Query.HalogenM"];
   var Halogen_VDom_Driver = $PS["Halogen.VDom.Driver"];
   var Parser = $PS["Parser"];
-  var StyleSheet = $PS["StyleSheet"];
-  var Text_Parsing_Parser = $PS["Text.Parsing.Parser"];                
-  var EmptyNI = (function () {
-      function EmptyNI() {
-
-      };
-      EmptyNI.value = new EmptyNI();
-      return EmptyNI;
-  })();
-  var ZeroNI = (function () {
-      function ZeroNI() {
-
-      };
-      ZeroNI.value = new ZeroNI();
-      return ZeroNI;
-  })();
-  var ZeroPeriodNI = (function () {
-      function ZeroPeriodNI() {
-
-      };
-      ZeroPeriodNI.value = new ZeroPeriodNI();
-      return ZeroPeriodNI;
-  })();
-  var NonEmptyNI = (function () {
-      function NonEmptyNI() {
-
-      };
-      NonEmptyNI.value = new NonEmptyNI();
-      return NonEmptyNI;
-  })();
-  var EmptyFM = (function () {
-      function EmptyFM() {
-
-      };
-      EmptyFM.value = new EmptyFM();
-      return EmptyFM;
-  })();
-  var NonEmptyFM = (function () {
-      function NonEmptyFM() {
-
-      };
-      NonEmptyFM.value = new NonEmptyFM();
-      return NonEmptyFM;
-  })();
-  var NoExists = (function () {
-      function NoExists() {
-
-      };
-      NoExists.value = new NoExists();
-      return NoExists;
-  })();
-  var MiddleOfNI = (function () {
-      function MiddleOfNI() {
-
-      };
-      MiddleOfNI.value = new MiddleOfNI();
-      return MiddleOfNI;
-  })();
-  var EndOfNI = (function () {
-      function EndOfNI() {
-
-      };
-      EndOfNI.value = new EndOfNI();
-      return EndOfNI;
-  })();
-  var IntNow = (function () {
-      function IntNow() {
-
-      };
-      IntNow.value = new IntNow();
-      return IntNow;
-  })();
-  var NumberNow = (function () {
-      function NumberNow() {
-
-      };
-      NumberNow.value = new NumberNow();
-      return NumberNow;
-  })();
+  var StyleSheet = $PS["StyleSheet"];                
   var Equal = (function () {
       function Equal() {
 
@@ -12755,6 +12632,76 @@ var PS = {};
       };
       Divide.value = new Divide();
       return Divide;
+  })();
+  var IntNumeral = (function () {
+      function IntNumeral(value0) {
+          this.value0 = value0;
+      };
+      IntNumeral.create = function (value0) {
+          return new IntNumeral(value0);
+      };
+      return IntNumeral;
+  })();
+  var NumberNumeral = (function () {
+      function NumberNumeral(value0) {
+          this.value0 = value0;
+      };
+      NumberNumeral.create = function (value0) {
+          return new NumberNumeral(value0);
+      };
+      return NumberNumeral;
+  })();
+  var Operator = (function () {
+      function Operator(value0, value1, value2) {
+          this.value0 = value0;
+          this.value1 = value1;
+          this.value2 = value2;
+      };
+      Operator.create = function (value0) {
+          return function (value1) {
+              return function (value2) {
+                  return new Operator(value0, value1, value2);
+              };
+          };
+      };
+      return Operator;
+  })();
+  var InitialTerm = (function () {
+      function InitialTerm() {
+
+      };
+      InitialTerm.value = new InitialTerm();
+      return InitialTerm;
+  })();
+  var CorrectFormula = (function () {
+      function CorrectFormula(value0) {
+          this.value0 = value0;
+      };
+      CorrectFormula.create = function (value0) {
+          return new CorrectFormula(value0);
+      };
+      return CorrectFormula;
+  })();
+  var OneMoreFormula = (function () {
+      function OneMoreFormula(value0, value1) {
+          this.value0 = value0;
+          this.value1 = value1;
+      };
+      OneMoreFormula.create = function (value0) {
+          return function (value1) {
+              return new OneMoreFormula(value0, value1);
+          };
+      };
+      return OneMoreFormula;
+  })();
+  var PeriodAtTheEnd = (function () {
+      function PeriodAtTheEnd(value0) {
+          this.value0 = value0;
+      };
+      PeriodAtTheEnd.create = function (value0) {
+          return new PeriodAtTheEnd(value0);
+      };
+      return PeriodAtTheEnd;
   })();
   var Zero = (function () {
       function Zero() {
@@ -12853,134 +12800,6 @@ var PS = {};
       };
       return AS;
   })();
-  var updateStateOfNewInputs = function (st) {
-      if (Data_String_Common["null"](st.newInputs)) {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: EmptyNI.value,
-              positionOfPeriod: st.positionOfPeriod,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
-          };
-      };
-      if (st.newInputs === "0") {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: ZeroNI.value,
-              positionOfPeriod: st.positionOfPeriod,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
-          };
-      };
-      if (st.newInputs === "0.") {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: ZeroPeriodNI.value,
-              positionOfPeriod: st.positionOfPeriod,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
-          };
-      };
-      if (Data_Boolean.otherwise) {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: NonEmptyNI.value,
-              positionOfPeriod: st.positionOfPeriod,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
-          };
-      };
-      throw new Error("Failed pattern match at Main (line 265, column 1 - line 265, column 41): " + [ st.constructor.name ]);
-  };
-  var updateStateOfFormula = function (st) {
-      if (Data_String_Common["null"](st.formula)) {
-          return {
-              formula: st.formula,
-              stateOfFormula: EmptyFM.value,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: st.stateOfNewInputs,
-              positionOfPeriod: st.positionOfPeriod,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
-          };
-      };
-      if (Data_Boolean.otherwise) {
-          return {
-              formula: st.formula,
-              stateOfFormula: NonEmptyFM.value,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: st.stateOfNewInputs,
-              positionOfPeriod: st.positionOfPeriod,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
-          };
-      };
-      throw new Error("Failed pattern match at Main (line 272, column 1 - line 272, column 39): " + [ st.constructor.name ]);
-  };
-  var updateNumNow = function (st) {
-      var xs = st.formula + st.newInputs;
-      var $58 = Parser.includePeriod(xs);
-      if ($58) {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: st.stateOfNewInputs,
-              positionOfPeriod: st.positionOfPeriod,
-              numNow: NumberNow.value,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
-          };
-      };
-      return {
-          formula: st.formula,
-          stateOfFormula: st.stateOfFormula,
-          actOperator: st.actOperator,
-          isMinus: st.isMinus,
-          newInputs: st.newInputs,
-          stateOfNewInputs: st.stateOfNewInputs,
-          positionOfPeriod: st.positionOfPeriod,
-          numNow: IntNow.value,
-          inputLog: st.inputLog,
-          counter: st.counter,
-          evalLog: st.evalLog
-      };
-  };
   var showActSpecial = new Data_Show.Show(function (v) {
       if (v instanceof Equal) {
           return "=";
@@ -12997,7 +12816,7 @@ var PS = {};
       if (v instanceof Substitute) {
           return "sub";
       };
-      throw new Error("Failed pattern match at Main (line 70, column 1 - line 75, column 26): " + [ v.constructor.name ]);
+      throw new Error("Failed pattern match at Main (line 76, column 1 - line 81, column 26): " + [ v.constructor.name ]);
   });
   var showActOperator = new Data_Show.Show(function (v) {
       if (v instanceof Plus) {
@@ -13012,7 +12831,7 @@ var PS = {};
       if (v instanceof Divide) {
           return "\xf7";
       };
-      throw new Error("Failed pattern match at Main (line 61, column 1 - line 65, column 20): " + [ v.constructor.name ]);
+      throw new Error("Failed pattern match at Main (line 66, column 1 - line 70, column 20): " + [ v.constructor.name ]);
   });
   var showActNum = new Data_Show.Show(function (v) {
       if (v instanceof Zero) {
@@ -13045,22 +12864,168 @@ var PS = {};
       if (v instanceof Nine) {
           return "9";
       };
-      throw new Error("Failed pattern match at Main (line 47, column 1 - line 57, column 19): " + [ v.constructor.name ]);
+      throw new Error("Failed pattern match at Main (line 50, column 1 - line 60, column 19): " + [ v.constructor.name ]);
   });
-  var resetIsMinus = function (st) {
-      return {
-          formula: st.formula,
-          stateOfFormula: st.stateOfFormula,
-          actOperator: st.actOperator,
-          isMinus: false,
-          newInputs: st.newInputs,
-          stateOfNewInputs: st.stateOfNewInputs,
-          positionOfPeriod: st.positionOfPeriod,
-          numNow: st.numNow,
-          inputLog: st.inputLog,
-          counter: st.counter,
-          evalLog: st.evalLog
+  var last = function (xs) {
+      var n = Data_String_CodePoints.length(xs);
+      return Data_String_CodePoints.drop(n - 1 | 0)(xs);
+  };
+  var isIncludingNumberNumeral = function (v) {
+      if (v instanceof InitialTerm) {
+          return false;
       };
+      if (v instanceof IntNumeral) {
+          return false;
+      };
+      if (v instanceof NumberNumeral) {
+          return true;
+      };
+      if (v instanceof Operator) {
+          return isIncludingNumberNumeral(v.value1) || isIncludingNumberNumeral(v.value2);
+      };
+      throw new Error("Failed pattern match at Main (line 305, column 1 - line 305, column 60): " + [ v.constructor.name ]);
+  };
+  var initialState = function (v) {
+      return {
+          formulaState: new CorrectFormula(InitialTerm.value)
+      };
+  };
+  var initialState_ = initialState(0);
+  var init = function (xs) {
+      var n = Data_String_CodePoints.length(xs);
+      return Data_String_CodePoints.take(n - 1 | 0)(xs);
+  };
+  var formulaShow = function (dictShow) {
+      return new Data_Show.Show(function (v) {
+          if (v instanceof InitialTerm) {
+              return "0";
+          };
+          if (v instanceof IntNumeral) {
+              return Data_Show.show(dictShow)(v.value0);
+          };
+          if (v instanceof NumberNumeral) {
+              return Data_Show.show(dictShow)(v.value0);
+          };
+          if (v instanceof Operator) {
+              return "(" + (Data_Show.show(formulaShow(dictShow))(v.value1) + (Data_Show.show(showActOperator)(v.value0) + (Data_Show.show(formulaShow(dictShow))(v.value2) + ")")));
+          };
+          throw new Error("Failed pattern match at Main (line 117, column 1 - line 121, column 68): " + [ v.constructor.name ]);
+      });
+  };
+  var formulaFunctor = new Data_Functor.Functor(function (f) {
+      return function (v) {
+          if (v instanceof IntNumeral) {
+              return IntNumeral.create(f(v.value0));
+          };
+          if (v instanceof NumberNumeral) {
+              return NumberNumeral.create(f(v.value0));
+          };
+          if (v instanceof Operator) {
+              return new Operator(v.value0, Data_Functor.map(formulaFunctor)(f)(v.value1), Data_Functor.map(formulaFunctor)(f)(v.value2));
+          };
+          if (v instanceof InitialTerm) {
+              return InitialTerm.value;
+          };
+          throw new Error("Failed pattern match at Main (line 111, column 1 - line 115, column 40): " + [ f.constructor.name, v.constructor.name ]);
+      };
+  });
+  var evalFormula = function (v) {
+      if (v instanceof InitialTerm) {
+          return "0";
+      };
+      if (v instanceof IntNumeral) {
+          return v.value0;
+      };
+      if (v instanceof NumberNumeral) {
+          return v.value0;
+      };
+      if (v instanceof Operator) {
+          return "" + (evalFormula(v.value1) + (Data_Show.show(showActOperator)(v.value0) + (evalFormula(v.value2) + "")));
+      };
+      throw new Error("Failed pattern match at Main (line 123, column 1 - line 123, column 40): " + [ v.constructor.name ]);
+  };
+  var eqActOperator = new Data_Eq.Eq(function (x) {
+      return function (y) {
+          if (x instanceof Plus && y instanceof Plus) {
+              return true;
+          };
+          if (x instanceof Minus && y instanceof Minus) {
+              return true;
+          };
+          if (x instanceof Times && y instanceof Times) {
+              return true;
+          };
+          if (x instanceof Divide && y instanceof Divide) {
+              return true;
+          };
+          return false;
+      };
+  });
+  var eqFormula = function (dictEq) {
+      return new Data_Eq.Eq(function (x) {
+          return function (y) {
+              if (x instanceof IntNumeral && y instanceof IntNumeral) {
+                  return Data_Eq.eq(dictEq)(x.value0)(y.value0);
+              };
+              if (x instanceof NumberNumeral && y instanceof NumberNumeral) {
+                  return Data_Eq.eq(dictEq)(x.value0)(y.value0);
+              };
+              if (x instanceof Operator && y instanceof Operator) {
+                  return Data_Eq.eq(eqActOperator)(x.value0)(y.value0) && Data_Eq.eq(eqFormula(dictEq))(x.value1)(y.value1) && Data_Eq.eq(eqFormula(dictEq))(x.value2)(y.value2);
+              };
+              if (x instanceof InitialTerm && y instanceof InitialTerm) {
+                  return true;
+              };
+              return false;
+          };
+      });
+  };
+  var eqActNum = new Data_Eq.Eq(function (x) {
+      return function (y) {
+          if (x instanceof Zero && y instanceof Zero) {
+              return true;
+          };
+          if (x instanceof One && y instanceof One) {
+              return true;
+          };
+          if (x instanceof Two && y instanceof Two) {
+              return true;
+          };
+          if (x instanceof Three && y instanceof Three) {
+              return true;
+          };
+          if (x instanceof Four && y instanceof Four) {
+              return true;
+          };
+          if (x instanceof Five && y instanceof Five) {
+              return true;
+          };
+          if (x instanceof Six && y instanceof Six) {
+              return true;
+          };
+          if (x instanceof Seven && y instanceof Seven) {
+              return true;
+          };
+          if (x instanceof Eight && y instanceof Eight) {
+              return true;
+          };
+          if (x instanceof Nine && y instanceof Nine) {
+              return true;
+          };
+          return false;
+      };
+  });
+  var deconst = function (v) {
+      if (v instanceof CorrectFormula) {
+          return v.value0;
+      };
+      if (v instanceof OneMoreFormula) {
+          return v.value0(v.value1);
+      };
+      if (v instanceof PeriodAtTheEnd) {
+          return v.value0;
+      };
+      throw new Error("Failed pattern match at Main (line 134, column 1 - line 134, column 50): " + [ v.constructor.name ]);
   };
   var render = function (st) {
       return Halogen_HTML_Elements.body([ Halogen_HTML_Properties.id_()("index") ])([ Halogen_HTML_Elements.head([  ])([ Halogen_HTML_Elements.meta([ Halogen_HTML_Properties.charset("UTF-8"), Halogen_HTML_Properties.name("viewpoint") ]), Halogen_HTML_Elements.title([  ])([ Halogen_HTML_Core.text("Web\u96fb\u5353") ]), Halogen_HTML_Elements.link([ Halogen_HTML_Properties.href("https://fonts.googleapis.com/css?family=Sawarabi+Mincho|Ultra&display=swap"), Halogen_HTML_Properties.rel("stylesheet") ]) ]), (function () {
@@ -13076,660 +13041,302 @@ var PS = {};
                   };
               };
               return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("content-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("display-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.id_()("num_display") ])([ Halogen_HTML_Core.text((function () {
-                  var $62 = st.formula === "" && st.newInputs === "0";
-                  if ($62) {
-                      return st.newInputs;
+                  var $102 = Data_Eq.eq(eqFormula(Data_Eq.eqString))(deconst(st.formulaState))(InitialTerm.value) || Data_Eq.eq(eqFormula(Data_Eq.eqString))(deconst(st.formulaState))(new IntNumeral("0"));
+                  if ($102) {
+                      return "0";
                   };
-                  if (st.actOperator instanceof Data_Maybe.Nothing) {
-                      return st.formula + st.newInputs;
+                  if (st.formulaState instanceof CorrectFormula) {
+                      return evalFormula(st.formulaState.value0);
                   };
-                  if (st.actOperator instanceof Data_Maybe.Just) {
-                      return st.formula + (Data_Show.show(showActOperator)(st.actOperator.value0) + st.newInputs);
+                  if (st.formulaState instanceof OneMoreFormula) {
+                      var v = st.formulaState.value0(st.formulaState.value1);
+                      if (v instanceof Operator) {
+                          return evalFormula(v.value1) + Data_Show.show(showActOperator)(v.value0);
+                      };
+                      return evalFormula(st.formulaState.value1);
                   };
-                  throw new Error("Failed pattern match at Main (line 171, column 46 - line 173, column 76): " + [ st.actOperator.constructor.name ]);
+                  if (st.formulaState instanceof PeriodAtTheEnd) {
+                      return evalFormula(st.formulaState.value0) + ".";
+                  };
+                  throw new Error("Failed pattern match at Main (line 220, column 46 - line 225, column 89): " + [ st.formulaState.constructor.name ]);
               })()) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.id_()("howcal_display") ])([ (function () {
                   var showOperator = function (x) {
                       return Halogen_HTML_Core.text(Data_Show.show(showActOperator)(x));
                   };
-                  if (st.actOperator instanceof Data_Maybe.Nothing) {
+                  if (st.formulaState instanceof OneMoreFormula) {
+                      var v = st.formulaState.value0(st.formulaState.value1);
+                      if (v instanceof Operator) {
+                          return showOperator(v.value0);
+                      };
                       return Halogen_HTML_Core.text("");
                   };
-                  if (st.actOperator instanceof Data_Maybe.Just) {
-                      return showOperator(st.actOperator.value0);
-                  };
-                  throw new Error("Failed pattern match at Main (line 178, column 27 - line 180, column 54): " + [ st.actOperator.constructor.name ]);
+                  return Halogen_HTML_Core.text("");
               })() ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("click-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("operator") ])([ divBtn("+")(new AO(Plus.value)), divBtn("-")(new AO(Minus.value)), divBtn("\xd7")(new AO(Times.value)), divBtn("\xf7")(new AO(Divide.value)), divBtn("AC")(new AS(AC.value)) ]), Halogen_HTML_Elements.div([ classname("operator") ])([ Halogen_HTML_Elements.div([ classname("row1") ])([ divBtn("7")(new AN(Seven.value)), divBtn("8")(new AN(Eight.value)), divBtn("9")(new AN(Nine.value)) ]), Halogen_HTML_Elements.div([ classname("row2") ])([ divBtn("4")(new AN(Four.value)), divBtn("5")(new AN(Five.value)), divBtn("6")(new AN(Six.value)) ]), Halogen_HTML_Elements.div([ classname("row3") ])([ divBtn("1")(new AN(One.value)), divBtn("2")(new AN(Two.value)), divBtn("3")(new AN(Three.value)) ]), Halogen_HTML_Elements.div([ classname("row4") ])([ divBtn("0")(new AN(Zero.value)), divBtn(".")(new AS(Period.value)), divBtn("C")(new AS(C.value)) ]), Halogen_HTML_Elements.div([ classname("row5") ])([ divBtn("=")(new AS(Equal.value)) ]) ]) ]) ]);
           })() ]) ]), Halogen_HTML_Elements.footer_([ Halogen_HTML_Elements.small_([ Halogen_HTML_Core.text("(c) 2019 momoogles.") ]) ]), Halogen_HTML_CSS.stylesheet(Control_Bind.discard(Control_Bind.discardUnit)(CSS_Stylesheet.bindStyleM)(StyleSheet.expo)(function () {
               return Config.expo;
           })) ]);
       })() ]);
   };
-  var last = function (xs) {
-      var n = Data_String_CodePoints.length(xs);
-      return Data_String_CodePoints.drop(n - 1 | 0)(xs);
-  };
-  var updatePositionOfPeriod = function (st) {
-      if (last(st.newInputs) === ".") {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: st.stateOfNewInputs,
-              positionOfPeriod: EndOfNI.value,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
+  var appendOperator = function (v) {
+      return function (xs) {
+          if (v instanceof InitialTerm) {
+              return InitialTerm.value;
           };
-      };
-      if (Parser.includePeriod(st.newInputs)) {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: st.stateOfNewInputs,
-              positionOfPeriod: MiddleOfNI.value,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
+          if (v instanceof IntNumeral) {
+              return IntNumeral.create(v.value0 + xs);
           };
-      };
-      if (Data_Boolean.otherwise) {
-          return {
-              formula: st.formula,
-              stateOfFormula: st.stateOfFormula,
-              actOperator: st.actOperator,
-              isMinus: st.isMinus,
-              newInputs: st.newInputs,
-              stateOfNewInputs: st.stateOfNewInputs,
-              positionOfPeriod: NoExists.value,
-              numNow: st.numNow,
-              inputLog: st.inputLog,
-              counter: st.counter,
-              evalLog: st.evalLog
+          if (v instanceof NumberNumeral) {
+              return NumberNumeral.create(v.value0 + xs);
           };
-      };
-      throw new Error("Failed pattern match at Main (line 277, column 1 - line 277, column 41): " + [ st.constructor.name ]);
-  };
-  var updateStates = function (st) {
-      return updateNumNow(updatePositionOfPeriod(updateStateOfFormula(updateStateOfNewInputs(st))));
-  };
-  var initialState = function (v) {
-      return {
-          formula: "",
-          stateOfFormula: EmptyFM.value,
-          actOperator: Data_Maybe.Nothing.value,
-          isMinus: false,
-          newInputs: "0",
-          stateOfNewInputs: ZeroNI.value,
-          positionOfPeriod: NoExists.value,
-          numNow: IntNow.value,
-          inputLog: [  ],
-          counter: 0,
-          evalLog: [  ]
+          if (v instanceof Operator) {
+              return new Operator(v.value0, v.value1, appendOperator(v.value2)(xs));
+          };
+          throw new Error("Failed pattern match at Main (line 325, column 1 - line 325, column 61): " + [ v.constructor.name, xs.constructor.name ]);
       };
   };
-  var initialState_ = initialState(0);
-  var init = function (xs) {
-      var n = Data_String_CodePoints.length(xs);
-      return Data_String_CodePoints.take(n - 1 | 0)(xs);
-  };
-  var evalFormula = function (st) {
-      var zs = (function () {
-          if (st.actOperator instanceof Data_Maybe.Nothing) {
-              return st.formula + st.newInputs;
-          };
-          if (st.actOperator instanceof Data_Maybe.Just) {
-              return st.formula + (Data_Show.show(showActOperator)(st.actOperator.value0) + st.newInputs);
-          };
-          throw new Error("Failed pattern match at Main (line 255, column 14 - line 257, column 62): " + [ st.actOperator.constructor.name ]);
-      })();
-      var zs$prime = (function () {
-          if (st.numNow instanceof NumberNow) {
-              return Data_Show.show(Data_Show.showNumber)(Data_Either.fromRight(0.0)(Text_Parsing_Parser.runParser(zs)(Parser.exprNumber)));
-          };
-          if (st.numNow instanceof IntNow) {
-              return Data_Show.show(Data_Show.showInt)(Data_Either.fromRight(0)(Text_Parsing_Parser.runParser(zs)(Parser.exprInt)));
-          };
-          throw new Error("Failed pattern match at Main (line 258, column 15 - line 260, column 75): " + [ st.numNow.constructor.name ]);
-      })();
-      return zs$prime;
-  };
-  var evalState = function (st) {
-      return {
-          formula: st.formula,
-          stateOfFormula: st.stateOfFormula,
-          actOperator: st.actOperator,
-          isMinus: st.isMinus,
-          newInputs: evalFormula(st),
-          stateOfNewInputs: st.stateOfNewInputs,
-          positionOfPeriod: st.positionOfPeriod,
-          numNow: st.numNow,
-          inputLog: st.inputLog,
-          counter: st.counter,
-          evalLog: st.evalLog
+  var allNumberNumeralify = function (v) {
+      if (v instanceof InitialTerm) {
+          return new NumberNumeral("0.0");
       };
+      if (v instanceof IntNumeral) {
+          return new NumberNumeral(v.value0);
+      };
+      if (v instanceof NumberNumeral) {
+          return new NumberNumeral(v.value0);
+      };
+      if (v instanceof Operator) {
+          return new Operator(v.value0, allNumberNumeralify(v.value1), allNumberNumeralify(v.value2));
+      };
+      throw new Error("Failed pattern match at Main (line 311, column 1 - line 311, column 56): " + [ v.constructor.name ]);
+  };
+  var $$eval = function (v) {
+      if (v instanceof CorrectFormula) {
+          if (isIncludingNumberNumeral(v.value0)) {
+              return CorrectFormula.create(NumberNumeral.create(Data_Show.show(Data_Show.showNumber)(Data_Either.fromRight(12345.6)(Parser.runExprNumber(evalFormula(allNumberNumeralify(v.value0)))))));
+          };
+          if (Data_Boolean.otherwise) {
+              return CorrectFormula.create(IntNumeral.create(Data_Show.show(Data_Show.showInt)(Data_Either.fromRight(123456)(Parser.runExprInt(evalFormula(v.value0))))));
+          };
+      };
+      if (v instanceof OneMoreFormula) {
+          return new OneMoreFormula(v.value0, v.value1);
+      };
+      if (v instanceof PeriodAtTheEnd) {
+          return new CorrectFormula(v.value0);
+      };
+      throw new Error("Failed pattern match at Main (line 318, column 1 - line 318, column 51): " + [ v.constructor.name ]);
   };
   var handleAction = function (dictMonadAff) {
       return function (v) {
           if (v instanceof AN) {
               return Control_Monad_State_Class.modify_(Halogen_Query_HalogenM.monadStateHalogenM)(function (st) {
-                  if (st.positionOfPeriod instanceof NoExists) {
-                      if (st.actOperator instanceof Data_Maybe.Nothing) {
-                          if (st.stateOfNewInputs instanceof NonEmptyNI) {
-                              return {
-                                  newInputs: st.newInputs + Data_Show.show(showActNum)(v.value0),
-                                  actOperator: st.actOperator,
-                                  formula: st.formula,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  stateOfNewInputs: st.stateOfNewInputs,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog,
-                                  inputLog: st.inputLog,
-                                  isMinus: st.isMinus,
-                                  numNow: st.numNow,
-                                  stateOfFormula: st.stateOfFormula
+                  if (st.formulaState instanceof CorrectFormula) {
+                      if (st.formulaState.value0 instanceof InitialTerm) {
+                          var $140 = Data_Eq.eq(eqActNum)(v.value0)(Zero.value);
+                          if ($140) {
+                              return st;
+                          };
+                          var $141 = {};
+                          for (var $142 in st) {
+                              if ({}.hasOwnProperty.call(st, $142)) {
+                                  $141[$142] = st[$142];
                               };
                           };
-                          if (st.stateOfNewInputs instanceof ZeroNI) {
-                              return updateStates({
-                                  formula: st.formula,
-                                  stateOfFormula: st.stateOfFormula,
-                                  actOperator: st.actOperator,
-                                  isMinus: st.isMinus,
-                                  newInputs: Data_Show.show(showActNum)(v.value0),
-                                  stateOfNewInputs: st.stateOfNewInputs,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  numNow: st.numNow,
-                                  inputLog: st.inputLog,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog
-                              });
-                          };
-                          return updateStates({
-                              formula: st.formula,
-                              stateOfFormula: st.stateOfFormula,
-                              actOperator: st.actOperator,
-                              isMinus: st.isMinus,
-                              newInputs: "Error!\u77db\u76fe",
-                              stateOfNewInputs: st.stateOfNewInputs,
-                              positionOfPeriod: st.positionOfPeriod,
-                              numNow: st.numNow,
-                              inputLog: st.inputLog,
-                              counter: st.counter,
-                              evalLog: st.evalLog
-                          });
+                          $141.formulaState = new CorrectFormula(IntNumeral.create(Data_Show.show(showActNum)(v.value0)));
+                          return $141;
                       };
-                      if (st.actOperator instanceof Data_Maybe.Just) {
-                          if (st.stateOfFormula instanceof EmptyFM) {
-                              return {
-                                  formula: "Error!\u4f55\u304b\u304c\u304a\u304b\u3057\u3044",
-                                  actOperator: st.actOperator,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog,
-                                  inputLog: st.inputLog,
-                                  isMinus: st.isMinus,
-                                  newInputs: st.newInputs,
-                                  numNow: st.numNow,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  stateOfFormula: st.stateOfFormula,
-                                  stateOfNewInputs: st.stateOfNewInputs
+                      if (st.formulaState.value0 instanceof IntNumeral) {
+                          var $144 = {};
+                          for (var $145 in st) {
+                              if ({}.hasOwnProperty.call(st, $145)) {
+                                  $144[$145] = st[$145];
                               };
                           };
-                          if (st.stateOfFormula instanceof NonEmptyFM) {
-                              if (st.stateOfNewInputs instanceof EmptyNI) {
-                                  return updateStates({
-                                      formula: st.formula,
-                                      stateOfFormula: st.stateOfFormula,
-                                      actOperator: st.actOperator,
-                                      isMinus: st.isMinus,
-                                      newInputs: Data_Show.show(showActNum)(v.value0),
-                                      stateOfNewInputs: st.stateOfNewInputs,
-                                      positionOfPeriod: st.positionOfPeriod,
-                                      numNow: st.numNow,
-                                      inputLog: st.inputLog,
-                                      counter: st.counter,
-                                      evalLog: st.evalLog
-                                  });
-                              };
-                              if (st.stateOfNewInputs instanceof ZeroNI) {
-                                  return updateStates({
-                                      formula: st.formula,
-                                      stateOfFormula: st.stateOfFormula,
-                                      actOperator: st.actOperator,
-                                      isMinus: st.isMinus,
-                                      newInputs: Data_Show.show(showActNum)(v.value0),
-                                      stateOfNewInputs: st.stateOfNewInputs,
-                                      positionOfPeriod: st.positionOfPeriod,
-                                      numNow: st.numNow,
-                                      inputLog: st.inputLog,
-                                      counter: st.counter,
-                                      evalLog: st.evalLog
-                                  });
-                              };
-                              return {
-                                  newInputs: st.newInputs + Data_Show.show(showActNum)(v.value0),
-                                  actOperator: st.actOperator,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog,
-                                  formula: st.formula,
-                                  inputLog: st.inputLog,
-                                  isMinus: st.isMinus,
-                                  numNow: st.numNow,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  stateOfFormula: st.stateOfFormula,
-                                  stateOfNewInputs: st.stateOfNewInputs
+                          $144.formulaState = CorrectFormula.create(IntNumeral.create(st.formulaState.value0.value0 + Data_Show.show(showActNum)(v.value0)));
+                          return $144;
+                      };
+                      if (st.formulaState.value0 instanceof NumberNumeral) {
+                          var $148 = {};
+                          for (var $149 in st) {
+                              if ({}.hasOwnProperty.call(st, $149)) {
+                                  $148[$149] = st[$149];
                               };
                           };
-                          throw new Error("Failed pattern match at Main (line 318, column 21 - line 324, column 68): " + [ st.stateOfFormula.constructor.name ]);
+                          $148.formulaState = CorrectFormula.create(NumberNumeral.create(st.formulaState.value0.value0 + Data_Show.show(showActNum)(v.value0)));
+                          return $148;
                       };
-                      throw new Error("Failed pattern match at Main (line 311, column 17 - line 324, column 68): " + [ st.actOperator.constructor.name ]);
-                  };
-                  if (st.positionOfPeriod instanceof EndOfNI) {
-                      return updateStates({
-                          formula: st.formula,
-                          stateOfFormula: st.stateOfFormula,
-                          actOperator: st.actOperator,
-                          isMinus: st.isMinus,
-                          newInputs: st.newInputs + Data_Show.show(showActNum)(v.value0),
-                          stateOfNewInputs: st.stateOfNewInputs,
-                          positionOfPeriod: MiddleOfNI.value,
-                          numNow: st.numNow,
-                          inputLog: st.inputLog,
-                          counter: st.counter,
-                          evalLog: st.evalLog
-                      });
-                  };
-                  if (st.positionOfPeriod instanceof MiddleOfNI) {
-                      return {
-                          newInputs: st.newInputs + Data_Show.show(showActNum)(v.value0),
-                          actOperator: st.actOperator,
-                          counter: st.counter,
-                          evalLog: st.evalLog,
-                          formula: st.formula,
-                          inputLog: st.inputLog,
-                          isMinus: st.isMinus,
-                          numNow: st.numNow,
-                          positionOfPeriod: st.positionOfPeriod,
-                          stateOfFormula: st.stateOfFormula,
-                          stateOfNewInputs: st.stateOfNewInputs
+                      if (st.formulaState.value0 instanceof Operator) {
+                          var $152 = {};
+                          for (var $153 in st) {
+                              if ({}.hasOwnProperty.call(st, $153)) {
+                                  $152[$153] = st[$153];
+                              };
+                          };
+                          $152.formulaState = CorrectFormula.create(appendOperator(st.formulaState.value0)(Data_Show.show(showActNum)(v.value0)));
+                          return $152;
                       };
+                      throw new Error("Failed pattern match at Main (line 341, column 9 - line 345, column 90): " + [ st.formulaState.value0.constructor.name ]);
                   };
-                  throw new Error("Failed pattern match at Main (line 309, column 14 - line 326, column 58): " + [ st.positionOfPeriod.constructor.name ]);
+                  if (st.formulaState instanceof OneMoreFormula) {
+                      var $159 = {};
+                      for (var $160 in st) {
+                          if ({}.hasOwnProperty.call(st, $160)) {
+                              $159[$160] = st[$160];
+                          };
+                      };
+                      $159.formulaState = CorrectFormula.create(st.formulaState.value0(IntNumeral.create(Data_Show.show(showActNum)(v.value0))));
+                      return $159;
+                  };
+                  if (st.formulaState instanceof PeriodAtTheEnd) {
+                      if (st.formulaState.value0 instanceof IntNumeral) {
+                          var $165 = {};
+                          for (var $166 in st) {
+                              if ({}.hasOwnProperty.call(st, $166)) {
+                                  $165[$166] = st[$166];
+                              };
+                          };
+                          $165.formulaState = CorrectFormula.create(NumberNumeral.create(st.formulaState.value0.value0 + ("." + Data_Show.show(showActNum)(v.value0))));
+                          return $165;
+                      };
+                      return st;
+                  };
+                  throw new Error("Failed pattern match at Main (line 339, column 5 - line 351, column 18): " + [ st.formulaState.constructor.name ]);
               });
           };
           if (v instanceof AO) {
               return Control_Monad_State_Class.modify_(Halogen_Query_HalogenM.monadStateHalogenM)(function (st) {
-                  if (st.actOperator instanceof Data_Maybe.Nothing) {
-                      if (st.stateOfFormula instanceof EmptyFM) {
-                          if (st.stateOfNewInputs instanceof EmptyNI) {
-                              return updateStates({
-                                  formula: st.newInputs,
-                                  stateOfFormula: st.stateOfFormula,
-                                  actOperator: new Data_Maybe.Just(v.value0),
-                                  isMinus: st.isMinus,
-                                  newInputs: "Error!\u8d77\u3053\u308a\u5f97\u306a\u3044\u3053\u3068\u304c\u8d77\u304d\u3066\u3044\u308b\uff01",
-                                  stateOfNewInputs: st.stateOfNewInputs,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  numNow: st.numNow,
-                                  inputLog: st.inputLog,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog
-                              });
-                          };
-                          if (st.stateOfNewInputs instanceof ZeroNI) {
-                              return updateStates({
-                                  formula: st.newInputs,
-                                  stateOfFormula: st.stateOfFormula,
-                                  actOperator: new Data_Maybe.Just(v.value0),
-                                  isMinus: st.isMinus,
-                                  newInputs: "",
-                                  stateOfNewInputs: st.stateOfNewInputs,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  numNow: st.numNow,
-                                  inputLog: st.inputLog,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog
-                              });
-                          };
-                          if (st.stateOfNewInputs instanceof ZeroPeriodNI) {
-                              return updateStates({
-                                  formula: "0",
-                                  stateOfFormula: st.stateOfFormula,
-                                  actOperator: new Data_Maybe.Just(v.value0),
-                                  isMinus: st.isMinus,
-                                  newInputs: "",
-                                  stateOfNewInputs: st.stateOfNewInputs,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  numNow: st.numNow,
-                                  inputLog: st.inputLog,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog
-                              });
-                          };
-                          if (st.stateOfNewInputs instanceof NonEmptyNI) {
-                              return updateStates({
-                                  formula: st.newInputs,
-                                  stateOfFormula: st.stateOfFormula,
-                                  actOperator: new Data_Maybe.Just(v.value0),
-                                  isMinus: st.isMinus,
-                                  newInputs: "",
-                                  stateOfNewInputs: st.stateOfNewInputs,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  numNow: st.numNow,
-                                  inputLog: st.inputLog,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog
-                              });
-                          };
-                          throw new Error("Failed pattern match at Main (line 333, column 39 - line 337, column 113): " + [ st.stateOfNewInputs.constructor.name ]);
-                      };
-                      if (st.stateOfFormula instanceof NonEmptyFM) {
-                          return {
-                              formula: "Error!\u3053\u3053\u304c\u898b\u3048\u308b\u3068\u3044\u3046\u3053\u3068\u306f\u6f14\u7b97\u5165\u529b\u6642\u306e\u9077\u79fb\u304c\u304a\u304b\u3057\u3044",
-                              actOperator: st.actOperator,
-                              counter: st.counter,
-                              evalLog: st.evalLog,
-                              inputLog: st.inputLog,
-                              isMinus: st.isMinus,
-                              newInputs: st.newInputs,
-                              numNow: st.numNow,
-                              positionOfPeriod: st.positionOfPeriod,
-                              stateOfFormula: st.stateOfFormula,
-                              stateOfNewInputs: st.stateOfNewInputs
+                  if (st.formulaState instanceof CorrectFormula) {
+                      var $172 = {};
+                      for (var $173 in st) {
+                          if ({}.hasOwnProperty.call(st, $173)) {
+                              $172[$173] = st[$173];
                           };
                       };
-                      throw new Error("Failed pattern match at Main (line 332, column 27 - line 338, column 90): " + [ st.stateOfFormula.constructor.name ]);
+                      $172.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value0), st.formulaState.value0);
+                      return $172;
                   };
-                  if (st.actOperator instanceof Data_Maybe.Just) {
-                      return updateStates({
-                          formula: "(" + (st.formula + (Data_Show.show(showActOperator)(st.actOperator.value0) + (st.newInputs + ")"))),
-                          stateOfFormula: st.stateOfFormula,
-                          actOperator: new Data_Maybe.Just(v.value0),
-                          isMinus: st.isMinus,
-                          newInputs: "",
-                          stateOfNewInputs: st.stateOfNewInputs,
-                          positionOfPeriod: st.positionOfPeriod,
-                          numNow: st.numNow,
-                          inputLog: st.inputLog,
-                          counter: st.counter,
-                          evalLog: st.evalLog
-                      });
+                  if (st.formulaState instanceof OneMoreFormula) {
+                      var $176 = {};
+                      for (var $177 in st) {
+                          if ({}.hasOwnProperty.call(st, $177)) {
+                              $176[$177] = st[$177];
+                          };
+                      };
+                      $176.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value1), st.formulaState.value1);
+                      return $176;
                   };
-                  throw new Error("Failed pattern match at Main (line 331, column 15 - line 339, column 124): " + [ st.actOperator.constructor.name ]);
+                  if (st.formulaState instanceof PeriodAtTheEnd) {
+                      var $181 = {};
+                      for (var $182 in st) {
+                          if ({}.hasOwnProperty.call(st, $182)) {
+                              $181[$182] = st[$182];
+                          };
+                      };
+                      $181.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value0), st.formulaState.value0);
+                      return $181;
+                  };
+                  throw new Error("Failed pattern match at Main (line 352, column 28 - line 355, column 75): " + [ st.formulaState.constructor.name ]);
               });
           };
           if (v instanceof AS) {
               return Control_Monad_State_Class.modify_(Halogen_Query_HalogenM.monadStateHalogenM)(function (st) {
                   if (v.value0 instanceof Equal) {
-                      if (st.actOperator instanceof Data_Maybe.Nothing) {
-                          if (st.positionOfPeriod instanceof EndOfNI) {
-                              return {
-                                  newInputs: init(st.newInputs),
-                                  actOperator: st.actOperator,
-                                  formula: st.formula,
-                                  positionOfPeriod: st.positionOfPeriod,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog,
-                                  inputLog: st.inputLog,
-                                  isMinus: st.isMinus,
-                                  numNow: st.numNow,
-                                  stateOfFormula: st.stateOfFormula,
-                                  stateOfNewInputs: st.stateOfNewInputs
+                      if (st.formulaState instanceof CorrectFormula) {
+                          var $188 = {};
+                          for (var $189 in st) {
+                              if ({}.hasOwnProperty.call(st, $189)) {
+                                  $188[$189] = st[$189];
                               };
                           };
+                          $188.formulaState = $$eval(new CorrectFormula(st.formulaState.value0));
+                          return $188;
+                      };
+                      if (st.formulaState instanceof OneMoreFormula) {
                           return st;
                       };
-                      if (st.actOperator instanceof Data_Maybe.Just) {
-                          var $87 = Data_String_Common["null"](st.newInputs);
-                          if ($87) {
-                              return st;
-                          };
-                          if (st.positionOfPeriod instanceof EndOfNI) {
-                              return updateStates((function () {
-                                  var v1 = evalState({
-                                      formula: st.formula,
-                                      stateOfFormula: st.stateOfFormula,
-                                      actOperator: st.actOperator,
-                                      isMinus: st.isMinus,
-                                      newInputs: init(st.newInputs),
-                                      stateOfNewInputs: st.stateOfNewInputs,
-                                      positionOfPeriod: st.positionOfPeriod,
-                                      numNow: st.numNow,
-                                      inputLog: st.inputLog,
-                                      counter: st.counter,
-                                      evalLog: st.evalLog
-                                  });
-                                  return {
-                                      formula: "",
-                                      stateOfFormula: v1.stateOfFormula,
-                                      actOperator: Data_Maybe.Nothing.value,
-                                      isMinus: v1.isMinus,
-                                      newInputs: v1.newInputs,
-                                      stateOfNewInputs: v1.stateOfNewInputs,
-                                      positionOfPeriod: v1.positionOfPeriod,
-                                      numNow: v1.numNow,
-                                      inputLog: v1.inputLog,
-                                      counter: v1.counter,
-                                      evalLog: v1.evalLog
-                                  };
-                              })());
-                          };
-                          return updateStates((function () {
-                              var v1 = evalState(st);
-                              return {
-                                  formula: "",
-                                  stateOfFormula: v1.stateOfFormula,
-                                  actOperator: Data_Maybe.Nothing.value,
-                                  isMinus: v1.isMinus,
-                                  newInputs: v1.newInputs,
-                                  stateOfNewInputs: v1.stateOfNewInputs,
-                                  positionOfPeriod: v1.positionOfPeriod,
-                                  numNow: v1.numNow,
-                                  inputLog: v1.inputLog,
-                                  counter: v1.counter,
-                                  evalLog: v1.evalLog
+                      if (st.formulaState instanceof PeriodAtTheEnd) {
+                          var $194 = {};
+                          for (var $195 in st) {
+                              if ({}.hasOwnProperty.call(st, $195)) {
+                                  $194[$195] = st[$195];
                               };
-                          })());
+                          };
+                          $194.formulaState = new CorrectFormula(st.formulaState.value0);
+                          return $194;
                       };
-                      throw new Error("Failed pattern match at Main (line 345, column 21 - line 355, column 111): " + [ st.actOperator.constructor.name ]);
+                      throw new Error("Failed pattern match at Main (line 357, column 14 - line 360, column 62): " + [ st.formulaState.constructor.name ]);
                   };
                   if (v.value0 instanceof AC) {
-                      return initialState_;
+                      var $198 = {};
+                      for (var $199 in st) {
+                          if ({}.hasOwnProperty.call(st, $199)) {
+                              $198[$199] = st[$199];
+                          };
+                      };
+                      $198.formulaState = new CorrectFormula(InitialTerm.value);
+                      return $198;
                   };
                   if (v.value0 instanceof Period) {
-                      if (st.positionOfPeriod instanceof NoExists) {
-                          if (st.actOperator instanceof Data_Maybe.Nothing) {
-                              return updateStates({
-                                  formula: st.formula,
-                                  stateOfFormula: st.stateOfFormula,
-                                  actOperator: st.actOperator,
-                                  isMinus: st.isMinus,
-                                  newInputs: st.newInputs + Data_Show.show(showActSpecial)(v.value0),
-                                  stateOfNewInputs: st.stateOfNewInputs,
-                                  positionOfPeriod: EndOfNI.value,
-                                  numNow: NumberNow.value,
-                                  inputLog: st.inputLog,
-                                  counter: st.counter,
-                                  evalLog: st.evalLog
-                              });
-                          };
-                          if (st.actOperator instanceof Data_Maybe.Just) {
-                              if (st.numNow instanceof NumberNow) {
-                                  if (st.stateOfFormula instanceof EmptyFM) {
-                                      return st;
-                                  };
-                                  if (st.stateOfFormula instanceof NonEmptyFM) {
-                                      if (st.stateOfNewInputs instanceof ZeroPeriodNI) {
-                                          return updateStates({
-                                              formula: st.formula,
-                                              stateOfFormula: st.stateOfFormula,
-                                              actOperator: st.actOperator,
-                                              isMinus: st.isMinus,
-                                              newInputs: init(st.newInputs) + Data_Show.show(showActSpecial)(v.value0),
-                                              stateOfNewInputs: st.stateOfNewInputs,
-                                              positionOfPeriod: st.positionOfPeriod,
-                                              numNow: st.numNow,
-                                              inputLog: st.inputLog,
-                                              counter: st.counter,
-                                              evalLog: st.evalLog
-                                          });
-                                      };
-                                      if (st.stateOfNewInputs instanceof EmptyNI) {
-                                          return st;
-                                      };
-                                      return updateStates({
-                                          formula: st.formula,
-                                          stateOfFormula: st.stateOfFormula,
-                                          actOperator: st.actOperator,
-                                          isMinus: st.isMinus,
-                                          newInputs: st.newInputs + Data_Show.show(showActSpecial)(v.value0),
-                                          stateOfNewInputs: st.stateOfNewInputs,
-                                          positionOfPeriod: st.positionOfPeriod,
-                                          numNow: st.numNow,
-                                          inputLog: st.inputLog,
-                                          counter: st.counter,
-                                          evalLog: st.evalLog
-                                      });
-                                  };
-                                  throw new Error("Failed pattern match at Main (line 363, column 57 - line 369, column 121): " + [ st.stateOfFormula.constructor.name ]);
-                              };
-                              if (st.numNow instanceof IntNow) {
-                                  if (st.stateOfNewInputs instanceof EmptyNI) {
-                                      return st;
-                                  };
-                                  if (st.stateOfNewInputs instanceof ZeroNI) {
-                                      return updateStates({
-                                          formula: st.formula,
-                                          stateOfFormula: st.stateOfFormula,
-                                          actOperator: st.actOperator,
-                                          isMinus: st.isMinus,
-                                          newInputs: st.newInputs + Data_Show.show(showActSpecial)(v.value0),
-                                          stateOfNewInputs: st.stateOfNewInputs,
-                                          positionOfPeriod: st.positionOfPeriod,
-                                          numNow: st.numNow,
-                                          inputLog: st.inputLog,
-                                          counter: st.counter,
-                                          evalLog: st.evalLog
-                                      });
-                                  };
-                                  if (st.stateOfNewInputs instanceof NonEmptyNI) {
-                                      return updateStates({
-                                          formula: st.formula,
-                                          stateOfFormula: st.stateOfFormula,
-                                          actOperator: st.actOperator,
-                                          isMinus: st.isMinus,
-                                          newInputs: st.newInputs + Data_Show.show(showActSpecial)(v.value0),
-                                          stateOfNewInputs: st.stateOfNewInputs,
-                                          positionOfPeriod: st.positionOfPeriod,
-                                          numNow: st.numNow,
-                                          inputLog: st.inputLog,
-                                          counter: st.counter,
-                                          evalLog: st.evalLog
-                                      });
-                                  };
-                                  return {
-                                      newInputs: "Error!\u3053\u306e\u72b6\u614b\u306f\u3042\u308a\u5f97\u306a\u3044\u306f\u305a",
-                                      actOperator: st.actOperator,
-                                      counter: st.counter,
-                                      evalLog: st.evalLog,
-                                      formula: st.formula,
-                                      inputLog: st.inputLog,
-                                      isMinus: st.isMinus,
-                                      numNow: st.numNow,
-                                      positionOfPeriod: st.positionOfPeriod,
-                                      stateOfFormula: st.stateOfFormula,
-                                      stateOfNewInputs: st.stateOfNewInputs
+                      if (st.formulaState instanceof CorrectFormula) {
+                          if (st.formulaState.value0 instanceof IntNumeral) {
+                              var $203 = {};
+                              for (var $204 in st) {
+                                  if ({}.hasOwnProperty.call(st, $204)) {
+                                      $203[$204] = st[$204];
                                   };
                               };
-                              throw new Error("Failed pattern match at Main (line 361, column 54 - line 375, column 109): " + [ st.numNow.constructor.name ]);
+                              $203.formulaState = new PeriodAtTheEnd(st.formulaState.value0);
+                              return $203;
                           };
-                          throw new Error("Failed pattern match at Main (line 359, column 43 - line 375, column 109): " + [ st.actOperator.constructor.name ]);
-                      };
-                      if (st.positionOfPeriod instanceof EndOfNI) {
-                          return updateStates({
-                              formula: st.formula,
-                              stateOfFormula: st.stateOfFormula,
-                              actOperator: st.actOperator,
-                              isMinus: st.isMinus,
-                              newInputs: init(st.newInputs),
-                              stateOfNewInputs: st.stateOfNewInputs,
-                              positionOfPeriod: st.positionOfPeriod,
-                              numNow: st.numNow,
-                              inputLog: st.inputLog,
-                              counter: st.counter,
-                              evalLog: st.evalLog
-                          });
-                      };
-                      if (st.positionOfPeriod instanceof MiddleOfNI) {
                           return st;
                       };
-                      throw new Error("Failed pattern match at Main (line 358, column 25 - line 377, column 45): " + [ st.positionOfPeriod.constructor.name ]);
+                      if (st.formulaState instanceof OneMoreFormula) {
+                          return st;
+                      };
+                      if (st.formulaState instanceof PeriodAtTheEnd) {
+                          var $210 = {};
+                          for (var $211 in st) {
+                              if ({}.hasOwnProperty.call(st, $211)) {
+                                  $210[$211] = st[$211];
+                              };
+                          };
+                          $210.formulaState = new CorrectFormula(st.formulaState.value0);
+                          return $210;
+                      };
+                      throw new Error("Failed pattern match at Main (line 362, column 15 - line 367, column 62): " + [ st.formulaState.constructor.name ]);
                   };
-                  return st;
+                  if (v.value0 instanceof C) {
+                      if (st.formulaState instanceof CorrectFormula) {
+                          if (st.formulaState.value0 instanceof Operator) {
+                              var $216 = {};
+                              for (var $217 in st) {
+                                  if ({}.hasOwnProperty.call(st, $217)) {
+                                      $216[$217] = st[$217];
+                                  };
+                              };
+                              $216.formulaState = CorrectFormula.create(new Operator(st.formulaState.value0.value0, st.formulaState.value0.value1, InitialTerm.value));
+                              return $216;
+                          };
+                          var $222 = {};
+                          for (var $223 in st) {
+                              if ({}.hasOwnProperty.call(st, $223)) {
+                                  $222[$223] = st[$223];
+                              };
+                          };
+                          $222.formulaState = new CorrectFormula(InitialTerm.value);
+                          return $222;
+                      };
+                      return st;
+                  };
+                  if (v.value0 instanceof Substitute) {
+                      return st;
+                  };
+                  throw new Error("Failed pattern match at Main (line 356, column 28 - line 373, column 21): " + [ v.value0.constructor.name ]);
               });
           };
-          throw new Error("Failed pattern match at Main (line 305, column 17 - line 378, column 30): " + [ v.constructor.name ]);
+          throw new Error("Failed pattern match at Main (line 337, column 17 - line 373, column 21): " + [ v.constructor.name ]);
       };
   };
-  var eqStateOfNewInputs = new Data_Eq.Eq(function (x) {
-      return function (y) {
-          if (x instanceof EmptyNI && y instanceof EmptyNI) {
-              return true;
-          };
-          if (x instanceof ZeroNI && y instanceof ZeroNI) {
-              return true;
-          };
-          if (x instanceof ZeroPeriodNI && y instanceof ZeroPeriodNI) {
-              return true;
-          };
-          if (x instanceof NonEmptyNI && y instanceof NonEmptyNI) {
-              return true;
-          };
-          return false;
-      };
-  });
-  var eqStateOfFormula = new Data_Eq.Eq(function (x) {
-      return function (y) {
-          if (x instanceof EmptyFM && y instanceof EmptyFM) {
-              return true;
-          };
-          if (x instanceof NonEmptyFM && y instanceof NonEmptyFM) {
-              return true;
-          };
-          return false;
-      };
-  });
-  var eqPositionOfPEriod = new Data_Eq.Eq(function (x) {
-      return function (y) {
-          if (x instanceof NoExists && y instanceof NoExists) {
-              return true;
-          };
-          if (x instanceof MiddleOfNI && y instanceof MiddleOfNI) {
-              return true;
-          };
-          if (x instanceof EndOfNI && y instanceof EndOfNI) {
-              return true;
-          };
-          return false;
-      };
-  });
-  var eqKindOfNumerals = new Data_Eq.Eq(function (x) {
-      return function (y) {
-          if (x instanceof IntNow && y instanceof IntNow) {
-              return true;
-          };
-          if (x instanceof NumberNow && y instanceof NumberNow) {
-              return true;
-          };
-          return false;
-      };
-  });
   var component = function (dictMonadAff) {
       return Halogen_Component.mkComponent({
           initialState: initialState,
@@ -13769,38 +13376,33 @@ var PS = {};
   exports["AN"] = AN;
   exports["AO"] = AO;
   exports["AS"] = AS;
-  exports["NoExists"] = NoExists;
-  exports["MiddleOfNI"] = MiddleOfNI;
-  exports["EndOfNI"] = EndOfNI;
-  exports["IntNow"] = IntNow;
-  exports["NumberNow"] = NumberNow;
-  exports["EmptyFM"] = EmptyFM;
-  exports["NonEmptyFM"] = NonEmptyFM;
-  exports["EmptyNI"] = EmptyNI;
-  exports["ZeroNI"] = ZeroNI;
-  exports["ZeroPeriodNI"] = ZeroPeriodNI;
-  exports["NonEmptyNI"] = NonEmptyNI;
+  exports["IntNumeral"] = IntNumeral;
+  exports["NumberNumeral"] = NumberNumeral;
+  exports["Operator"] = Operator;
+  exports["InitialTerm"] = InitialTerm;
+  exports["evalFormula"] = evalFormula;
+  exports["CorrectFormula"] = CorrectFormula;
+  exports["OneMoreFormula"] = OneMoreFormula;
+  exports["PeriodAtTheEnd"] = PeriodAtTheEnd;
+  exports["deconst"] = deconst;
   exports["component"] = component;
   exports["initialState"] = initialState;
   exports["initialState_"] = initialState_;
   exports["render"] = render;
   exports["last"] = last;
   exports["init"] = init;
-  exports["evalState"] = evalState;
-  exports["evalFormula"] = evalFormula;
-  exports["updateStateOfNewInputs"] = updateStateOfNewInputs;
-  exports["updateStateOfFormula"] = updateStateOfFormula;
-  exports["updatePositionOfPeriod"] = updatePositionOfPeriod;
-  exports["updateNumNow"] = updateNumNow;
-  exports["updateStates"] = updateStates;
-  exports["resetIsMinus"] = resetIsMinus;
+  exports["isIncludingNumberNumeral"] = isIncludingNumberNumeral;
+  exports["allNumberNumeralify"] = allNumberNumeralify;
+  exports["eval"] = $$eval;
+  exports["appendOperator"] = appendOperator;
   exports["handleAction"] = handleAction;
   exports["showActNum"] = showActNum;
+  exports["eqActNum"] = eqActNum;
   exports["showActOperator"] = showActOperator;
+  exports["eqActOperator"] = eqActOperator;
   exports["showActSpecial"] = showActSpecial;
-  exports["eqPositionOfPEriod"] = eqPositionOfPEriod;
-  exports["eqKindOfNumerals"] = eqKindOfNumerals;
-  exports["eqStateOfFormula"] = eqStateOfFormula;
-  exports["eqStateOfNewInputs"] = eqStateOfNewInputs;
+  exports["eqFormula"] = eqFormula;
+  exports["formulaFunctor"] = formulaFunctor;
+  exports["formulaShow"] = formulaShow;
 })(PS);
 PS["Main"].main();
