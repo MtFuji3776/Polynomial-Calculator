@@ -12883,7 +12883,13 @@ var PS = {};
       if (v instanceof Operator) {
           return isIncludingNumberNumeral(v.value1) || isIncludingNumberNumeral(v.value2);
       };
-      throw new Error("Failed pattern match at Main (line 305, column 1 - line 305, column 60): " + [ v.constructor.name ]);
+      throw new Error("Failed pattern match at Main (line 268, column 1 - line 268, column 60): " + [ v.constructor.name ]);
+  };
+  var intNumeralToNumberNumeral = function (v) {
+      if (v instanceof IntNumeral) {
+          return new NumberNumeral(v.value0);
+      };
+      return v;
   };
   var initialState = function (v) {
       return {
@@ -12909,7 +12915,7 @@ var PS = {};
           if (v instanceof Operator) {
               return "(" + (Data_Show.show(formulaShow(dictShow))(v.value1) + (Data_Show.show(showActOperator)(v.value0) + (Data_Show.show(formulaShow(dictShow))(v.value2) + ")")));
           };
-          throw new Error("Failed pattern match at Main (line 117, column 1 - line 121, column 68): " + [ v.constructor.name ]);
+          throw new Error("Failed pattern match at Main (line 102, column 1 - line 106, column 68): " + [ v.constructor.name ]);
       });
   };
   var formulaFunctor = new Data_Functor.Functor(function (f) {
@@ -12926,7 +12932,7 @@ var PS = {};
           if (v instanceof InitialTerm) {
               return InitialTerm.value;
           };
-          throw new Error("Failed pattern match at Main (line 111, column 1 - line 115, column 40): " + [ f.constructor.name, v.constructor.name ]);
+          throw new Error("Failed pattern match at Main (line 96, column 1 - line 100, column 40): " + [ f.constructor.name, v.constructor.name ]);
       };
   });
   var evalFormula = function (v) {
@@ -12942,7 +12948,53 @@ var PS = {};
       if (v instanceof Operator) {
           return "" + (evalFormula(v.value1) + (Data_Show.show(showActOperator)(v.value0) + (evalFormula(v.value2) + "")));
       };
-      throw new Error("Failed pattern match at Main (line 123, column 1 - line 123, column 40): " + [ v.constructor.name ]);
+      throw new Error("Failed pattern match at Main (line 108, column 1 - line 108, column 40): " + [ v.constructor.name ]);
+  };
+  var render = function (st) {
+      return Halogen_HTML_Elements.body([ Halogen_HTML_Properties.id_()("index") ])([ Halogen_HTML_Elements.head([  ])([ Halogen_HTML_Elements.meta([ Halogen_HTML_Properties.charset("UTF-8"), Halogen_HTML_Properties.name("viewpoint") ]), Halogen_HTML_Elements.title([  ])([ Halogen_HTML_Core.text("Web\u96fb\u5353") ]), Halogen_HTML_Elements.link([ Halogen_HTML_Properties.href("https://fonts.googleapis.com/css?family=Sawarabi+Mincho|Ultra&display=swap"), Halogen_HTML_Properties.rel("stylesheet") ]) ]), (function () {
+          var classname = function (nm) {
+              return Halogen_HTML_Properties.class_(nm);
+          };
+          return Halogen_HTML_Elements.body([ Halogen_HTML_Properties.id("index") ])([ Halogen_HTML_Elements.header_([ Halogen_HTML_Elements.h1_([ Halogen_HTML_Core.text("WEB\u96fb\u5353") ]) ]), Halogen_HTML_Elements.main_([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("main-content") ])([ (function () {
+              var divBtn = function (xs) {
+                  return function (act) {
+                      return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("btn"), Halogen_HTML_Events.onClick(function (v) {
+                          return act;
+                      }) ])([ Halogen_HTML_Core.text(xs) ]);
+                  };
+              };
+              return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("content-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("display-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.id_()("num_display") ])([ Halogen_HTML_Core.text((function () {
+                  if (st.formulaState instanceof CorrectFormula) {
+                      return evalFormula(st.formulaState.value0);
+                  };
+                  if (st.formulaState instanceof OneMoreFormula) {
+                      var v = st.formulaState.value0(st.formulaState.value1);
+                      if (v instanceof Operator) {
+                          return evalFormula(v.value1) + Data_Show.show(showActOperator)(v.value0);
+                      };
+                      return evalFormula(st.formulaState.value1);
+                  };
+                  if (st.formulaState instanceof PeriodAtTheEnd) {
+                      return evalFormula(st.formulaState.value0) + ".";
+                  };
+                  throw new Error("Failed pattern match at Main (line 183, column 45 - line 188, column 89): " + [ st.formulaState.constructor.name ]);
+              })()) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.id_()("howcal_display") ])([ (function () {
+                  var showOperator = function (x) {
+                      return Halogen_HTML_Core.text(Data_Show.show(showActOperator)(x));
+                  };
+                  if (st.formulaState instanceof OneMoreFormula) {
+                      var v = st.formulaState.value0(st.formulaState.value1);
+                      if (v instanceof Operator) {
+                          return showOperator(v.value0);
+                      };
+                      return Halogen_HTML_Core.text("");
+                  };
+                  return Halogen_HTML_Core.text("");
+              })() ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("click-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("operator") ])([ divBtn("+")(new AO(Plus.value)), divBtn("-")(new AO(Minus.value)), divBtn("\xd7")(new AO(Times.value)), divBtn("\xf7")(new AO(Divide.value)), divBtn("AC")(new AS(AC.value)) ]), Halogen_HTML_Elements.div([ classname("operator") ])([ Halogen_HTML_Elements.div([ classname("row1") ])([ divBtn("7")(new AN(Seven.value)), divBtn("8")(new AN(Eight.value)), divBtn("9")(new AN(Nine.value)) ]), Halogen_HTML_Elements.div([ classname("row2") ])([ divBtn("4")(new AN(Four.value)), divBtn("5")(new AN(Five.value)), divBtn("6")(new AN(Six.value)) ]), Halogen_HTML_Elements.div([ classname("row3") ])([ divBtn("1")(new AN(One.value)), divBtn("2")(new AN(Two.value)), divBtn("3")(new AN(Three.value)) ]), Halogen_HTML_Elements.div([ classname("row4") ])([ divBtn("0")(new AN(Zero.value)), divBtn(".")(new AS(Period.value)), divBtn("C")(new AS(C.value)) ]), Halogen_HTML_Elements.div([ classname("row5") ])([ divBtn("=")(new AS(Equal.value)) ]) ]) ]) ]);
+          })() ]) ]), Halogen_HTML_Elements.footer_([ Halogen_HTML_Elements.small_([ Halogen_HTML_Core.text("(c) 2019 momoogles.") ]) ]), Halogen_HTML_CSS.stylesheet(Control_Bind.discard(Control_Bind.discardUnit)(CSS_Stylesheet.bindStyleM)(StyleSheet.expo)(function () {
+              return Config.expo;
+          })) ]);
+      })() ]);
   };
   var eqActOperator = new Data_Eq.Eq(function (x) {
       return function (y) {
@@ -13025,57 +13077,7 @@ var PS = {};
       if (v instanceof PeriodAtTheEnd) {
           return v.value0;
       };
-      throw new Error("Failed pattern match at Main (line 134, column 1 - line 134, column 50): " + [ v.constructor.name ]);
-  };
-  var render = function (st) {
-      return Halogen_HTML_Elements.body([ Halogen_HTML_Properties.id_()("index") ])([ Halogen_HTML_Elements.head([  ])([ Halogen_HTML_Elements.meta([ Halogen_HTML_Properties.charset("UTF-8"), Halogen_HTML_Properties.name("viewpoint") ]), Halogen_HTML_Elements.title([  ])([ Halogen_HTML_Core.text("Web\u96fb\u5353") ]), Halogen_HTML_Elements.link([ Halogen_HTML_Properties.href("https://fonts.googleapis.com/css?family=Sawarabi+Mincho|Ultra&display=swap"), Halogen_HTML_Properties.rel("stylesheet") ]) ]), (function () {
-          var classname = function (nm) {
-              return Halogen_HTML_Properties.class_(nm);
-          };
-          return Halogen_HTML_Elements.body([ Halogen_HTML_Properties.id("index") ])([ Halogen_HTML_Elements.header_([ Halogen_HTML_Elements.h1_([ Halogen_HTML_Core.text("WEB\u96fb\u5353") ]) ]), Halogen_HTML_Elements.main_([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("main-content") ])([ (function () {
-              var divBtn = function (xs) {
-                  return function (act) {
-                      return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("btn"), Halogen_HTML_Events.onClick(function (v) {
-                          return act;
-                      }) ])([ Halogen_HTML_Core.text(xs) ]);
-                  };
-              };
-              return Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("content-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("display-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.id_()("num_display") ])([ Halogen_HTML_Core.text((function () {
-                  var $102 = Data_Eq.eq(eqFormula(Data_Eq.eqString))(deconst(st.formulaState))(InitialTerm.value) || Data_Eq.eq(eqFormula(Data_Eq.eqString))(deconst(st.formulaState))(new IntNumeral("0"));
-                  if ($102) {
-                      return "0";
-                  };
-                  if (st.formulaState instanceof CorrectFormula) {
-                      return evalFormula(st.formulaState.value0);
-                  };
-                  if (st.formulaState instanceof OneMoreFormula) {
-                      var v = st.formulaState.value0(st.formulaState.value1);
-                      if (v instanceof Operator) {
-                          return evalFormula(v.value1) + Data_Show.show(showActOperator)(v.value0);
-                      };
-                      return evalFormula(st.formulaState.value1);
-                  };
-                  if (st.formulaState instanceof PeriodAtTheEnd) {
-                      return evalFormula(st.formulaState.value0) + ".";
-                  };
-                  throw new Error("Failed pattern match at Main (line 220, column 46 - line 225, column 89): " + [ st.formulaState.constructor.name ]);
-              })()) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.id_()("howcal_display") ])([ (function () {
-                  var showOperator = function (x) {
-                      return Halogen_HTML_Core.text(Data_Show.show(showActOperator)(x));
-                  };
-                  if (st.formulaState instanceof OneMoreFormula) {
-                      var v = st.formulaState.value0(st.formulaState.value1);
-                      if (v instanceof Operator) {
-                          return showOperator(v.value0);
-                      };
-                      return Halogen_HTML_Core.text("");
-                  };
-                  return Halogen_HTML_Core.text("");
-              })() ]) ]), Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("click-area") ])([ Halogen_HTML_Elements.div([ Halogen_HTML_Properties.class_("operator") ])([ divBtn("+")(new AO(Plus.value)), divBtn("-")(new AO(Minus.value)), divBtn("\xd7")(new AO(Times.value)), divBtn("\xf7")(new AO(Divide.value)), divBtn("AC")(new AS(AC.value)) ]), Halogen_HTML_Elements.div([ classname("operator") ])([ Halogen_HTML_Elements.div([ classname("row1") ])([ divBtn("7")(new AN(Seven.value)), divBtn("8")(new AN(Eight.value)), divBtn("9")(new AN(Nine.value)) ]), Halogen_HTML_Elements.div([ classname("row2") ])([ divBtn("4")(new AN(Four.value)), divBtn("5")(new AN(Five.value)), divBtn("6")(new AN(Six.value)) ]), Halogen_HTML_Elements.div([ classname("row3") ])([ divBtn("1")(new AN(One.value)), divBtn("2")(new AN(Two.value)), divBtn("3")(new AN(Three.value)) ]), Halogen_HTML_Elements.div([ classname("row4") ])([ divBtn("0")(new AN(Zero.value)), divBtn(".")(new AS(Period.value)), divBtn("C")(new AS(C.value)) ]), Halogen_HTML_Elements.div([ classname("row5") ])([ divBtn("=")(new AS(Equal.value)) ]) ]) ]) ]);
-          })() ]) ]), Halogen_HTML_Elements.footer_([ Halogen_HTML_Elements.small_([ Halogen_HTML_Core.text("(c) 2019 momoogles.") ]) ]), Halogen_HTML_CSS.stylesheet(Control_Bind.discard(Control_Bind.discardUnit)(CSS_Stylesheet.bindStyleM)(StyleSheet.expo)(function () {
-              return Config.expo;
-          })) ]);
-      })() ]);
+      throw new Error("Failed pattern match at Main (line 119, column 1 - line 119, column 50): " + [ v.constructor.name ]);
   };
   var appendOperator = function (v) {
       return function (xs) {
@@ -13091,15 +13093,18 @@ var PS = {};
           if (v instanceof Operator) {
               return new Operator(v.value0, v.value1, appendOperator(v.value2)(xs));
           };
-          throw new Error("Failed pattern match at Main (line 325, column 1 - line 325, column 61): " + [ v.constructor.name, xs.constructor.name ]);
+          throw new Error("Failed pattern match at Main (line 288, column 1 - line 288, column 61): " + [ v.constructor.name, xs.constructor.name ]);
       };
+  };
+  var appendPeriod = function (t) {
+      return appendOperator(t)(".");
   };
   var allNumberNumeralify = function (v) {
       if (v instanceof InitialTerm) {
           return new NumberNumeral("0.0");
       };
       if (v instanceof IntNumeral) {
-          return new NumberNumeral(v.value0);
+          return NumberNumeral.create(v.value0 + ".0");
       };
       if (v instanceof NumberNumeral) {
           return new NumberNumeral(v.value0);
@@ -13107,7 +13112,7 @@ var PS = {};
       if (v instanceof Operator) {
           return new Operator(v.value0, allNumberNumeralify(v.value1), allNumberNumeralify(v.value2));
       };
-      throw new Error("Failed pattern match at Main (line 311, column 1 - line 311, column 56): " + [ v.constructor.name ]);
+      throw new Error("Failed pattern match at Main (line 274, column 1 - line 274, column 56): " + [ v.constructor.name ]);
   };
   var $$eval = function (v) {
       if (v instanceof CorrectFormula) {
@@ -13124,7 +13129,7 @@ var PS = {};
       if (v instanceof PeriodAtTheEnd) {
           return new CorrectFormula(v.value0);
       };
-      throw new Error("Failed pattern match at Main (line 318, column 1 - line 318, column 51): " + [ v.constructor.name ]);
+      throw new Error("Failed pattern match at Main (line 281, column 1 - line 281, column 51): " + [ v.constructor.name ]);
   };
   var handleAction = function (dictMonadAff) {
       return function (v) {
@@ -13132,161 +13137,213 @@ var PS = {};
               return Control_Monad_State_Class.modify_(Halogen_Query_HalogenM.monadStateHalogenM)(function (st) {
                   if (st.formulaState instanceof CorrectFormula) {
                       if (st.formulaState.value0 instanceof InitialTerm) {
-                          var $140 = Data_Eq.eq(eqActNum)(v.value0)(Zero.value);
-                          if ($140) {
+                          var $147 = Data_Eq.eq(eqActNum)(v.value0)(Zero.value);
+                          if ($147) {
                               return st;
                           };
-                          var $141 = {};
-                          for (var $142 in st) {
-                              if ({}.hasOwnProperty.call(st, $142)) {
-                                  $141[$142] = st[$142];
-                              };
-                          };
-                          $141.formulaState = new CorrectFormula(IntNumeral.create(Data_Show.show(showActNum)(v.value0)));
-                          return $141;
-                      };
-                      if (st.formulaState.value0 instanceof IntNumeral) {
-                          var $144 = {};
-                          for (var $145 in st) {
-                              if ({}.hasOwnProperty.call(st, $145)) {
-                                  $144[$145] = st[$145];
-                              };
-                          };
-                          $144.formulaState = CorrectFormula.create(IntNumeral.create(st.formulaState.value0.value0 + Data_Show.show(showActNum)(v.value0)));
-                          return $144;
-                      };
-                      if (st.formulaState.value0 instanceof NumberNumeral) {
                           var $148 = {};
                           for (var $149 in st) {
                               if ({}.hasOwnProperty.call(st, $149)) {
                                   $148[$149] = st[$149];
                               };
                           };
-                          $148.formulaState = CorrectFormula.create(NumberNumeral.create(st.formulaState.value0.value0 + Data_Show.show(showActNum)(v.value0)));
+                          $148.formulaState = new CorrectFormula(IntNumeral.create(Data_Show.show(showActNum)(v.value0)));
                           return $148;
                       };
-                      if (st.formulaState.value0 instanceof Operator) {
-                          var $152 = {};
-                          for (var $153 in st) {
-                              if ({}.hasOwnProperty.call(st, $153)) {
-                                  $152[$153] = st[$153];
+                      if (st.formulaState.value0 instanceof IntNumeral) {
+                          var $151 = {};
+                          for (var $152 in st) {
+                              if ({}.hasOwnProperty.call(st, $152)) {
+                                  $151[$152] = st[$152];
                               };
                           };
-                          $152.formulaState = CorrectFormula.create(appendOperator(st.formulaState.value0)(Data_Show.show(showActNum)(v.value0)));
-                          return $152;
+                          $151.formulaState = CorrectFormula.create(IntNumeral.create(st.formulaState.value0.value0 + Data_Show.show(showActNum)(v.value0)));
+                          return $151;
                       };
-                      throw new Error("Failed pattern match at Main (line 341, column 9 - line 345, column 90): " + [ st.formulaState.value0.constructor.name ]);
+                      if (st.formulaState.value0 instanceof NumberNumeral) {
+                          var $155 = {};
+                          for (var $156 in st) {
+                              if ({}.hasOwnProperty.call(st, $156)) {
+                                  $155[$156] = st[$156];
+                              };
+                          };
+                          $155.formulaState = CorrectFormula.create(NumberNumeral.create(st.formulaState.value0.value0 + Data_Show.show(showActNum)(v.value0)));
+                          return $155;
+                      };
+                      if (st.formulaState.value0 instanceof Operator) {
+                          if (st.formulaState.value0.value2 instanceof InitialTerm) {
+                              var $160 = Data_Show.show(showActNum)(v.value0) === "0";
+                              if ($160) {
+                                  return st;
+                              };
+                              var $161 = {};
+                              for (var $162 in st) {
+                                  if ({}.hasOwnProperty.call(st, $162)) {
+                                      $161[$162] = st[$162];
+                                  };
+                              };
+                              $161.formulaState = CorrectFormula.create(new Operator(st.formulaState.value0.value0, st.formulaState.value0.value1, IntNumeral.create(Data_Show.show(showActNum)(v.value0))));
+                              return $161;
+                          };
+                          var $164 = {};
+                          for (var $165 in st) {
+                              if ({}.hasOwnProperty.call(st, $165)) {
+                                  $164[$165] = st[$165];
+                              };
+                          };
+                          $164.formulaState = CorrectFormula.create(appendOperator(st.formulaState.value0)(Data_Show.show(showActNum)(v.value0)));
+                          return $164;
+                      };
+                      throw new Error("Failed pattern match at Main (line 310, column 9 - line 316, column 79): " + [ st.formulaState.value0.constructor.name ]);
                   };
                   if (st.formulaState instanceof OneMoreFormula) {
-                      var $159 = {};
-                      for (var $160 in st) {
-                          if ({}.hasOwnProperty.call(st, $160)) {
-                              $159[$160] = st[$160];
+                      var $171 = {};
+                      for (var $172 in st) {
+                          if ({}.hasOwnProperty.call(st, $172)) {
+                              $171[$172] = st[$172];
                           };
                       };
-                      $159.formulaState = CorrectFormula.create(st.formulaState.value0(IntNumeral.create(Data_Show.show(showActNum)(v.value0))));
-                      return $159;
+                      $171.formulaState = CorrectFormula.create(st.formulaState.value0(IntNumeral.create(Data_Show.show(showActNum)(v.value0))));
+                      return $171;
                   };
                   if (st.formulaState instanceof PeriodAtTheEnd) {
                       if (st.formulaState.value0 instanceof IntNumeral) {
-                          var $165 = {};
-                          for (var $166 in st) {
-                              if ({}.hasOwnProperty.call(st, $166)) {
-                                  $165[$166] = st[$166];
+                          var $177 = {};
+                          for (var $178 in st) {
+                              if ({}.hasOwnProperty.call(st, $178)) {
+                                  $177[$178] = st[$178];
                               };
                           };
-                          $165.formulaState = CorrectFormula.create(NumberNumeral.create(st.formulaState.value0.value0 + ("." + Data_Show.show(showActNum)(v.value0))));
-                          return $165;
+                          $177.formulaState = CorrectFormula.create(NumberNumeral.create(st.formulaState.value0.value0 + ("." + Data_Show.show(showActNum)(v.value0))));
+                          return $177;
+                      };
+                      if (st.formulaState.value0 instanceof Operator) {
+                          var $181 = isIncludingNumberNumeral(st.formulaState.value0.value2);
+                          if ($181) {
+                              return st;
+                          };
+                          var $182 = {};
+                          for (var $183 in st) {
+                              if ({}.hasOwnProperty.call(st, $183)) {
+                                  $182[$183] = st[$183];
+                              };
+                          };
+                          $182.formulaState = CorrectFormula.create(intNumeralToNumberNumeral(appendOperator(st.formulaState.value0)("." + Data_Show.show(showActNum)(v.value0))));
+                          return $182;
                       };
                       return st;
                   };
-                  throw new Error("Failed pattern match at Main (line 339, column 5 - line 351, column 18): " + [ st.formulaState.constructor.name ]);
+                  throw new Error("Failed pattern match at Main (line 308, column 5 - line 323, column 18): " + [ st.formulaState.constructor.name ]);
               });
           };
           if (v instanceof AO) {
               return Control_Monad_State_Class.modify_(Halogen_Query_HalogenM.monadStateHalogenM)(function (st) {
                   if (st.formulaState instanceof CorrectFormula) {
-                      var $172 = {};
-                      for (var $173 in st) {
-                          if ({}.hasOwnProperty.call(st, $173)) {
-                              $172[$173] = st[$173];
+                      var $191 = {};
+                      for (var $192 in st) {
+                          if ({}.hasOwnProperty.call(st, $192)) {
+                              $191[$192] = st[$192];
                           };
                       };
-                      $172.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value0), st.formulaState.value0);
-                      return $172;
+                      $191.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value0), st.formulaState.value0);
+                      return $191;
                   };
                   if (st.formulaState instanceof OneMoreFormula) {
-                      var $176 = {};
-                      for (var $177 in st) {
-                          if ({}.hasOwnProperty.call(st, $177)) {
-                              $176[$177] = st[$177];
+                      var $195 = {};
+                      for (var $196 in st) {
+                          if ({}.hasOwnProperty.call(st, $196)) {
+                              $195[$196] = st[$196];
                           };
                       };
-                      $176.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value1), st.formulaState.value1);
-                      return $176;
+                      $195.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value1), st.formulaState.value1);
+                      return $195;
                   };
                   if (st.formulaState instanceof PeriodAtTheEnd) {
-                      var $181 = {};
-                      for (var $182 in st) {
-                          if ({}.hasOwnProperty.call(st, $182)) {
-                              $181[$182] = st[$182];
+                      var $200 = {};
+                      for (var $201 in st) {
+                          if ({}.hasOwnProperty.call(st, $201)) {
+                              $200[$201] = st[$201];
                           };
                       };
-                      $181.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value0), st.formulaState.value0);
-                      return $181;
+                      $200.formulaState = new OneMoreFormula(Operator.create(v.value0)(st.formulaState.value0), st.formulaState.value0);
+                      return $200;
                   };
-                  throw new Error("Failed pattern match at Main (line 352, column 28 - line 355, column 75): " + [ st.formulaState.constructor.name ]);
+                  throw new Error("Failed pattern match at Main (line 324, column 28 - line 327, column 78): " + [ st.formulaState.constructor.name ]);
               });
           };
           if (v instanceof AS) {
               return Control_Monad_State_Class.modify_(Halogen_Query_HalogenM.monadStateHalogenM)(function (st) {
                   if (v.value0 instanceof Equal) {
                       if (st.formulaState instanceof CorrectFormula) {
-                          var $188 = {};
-                          for (var $189 in st) {
-                              if ({}.hasOwnProperty.call(st, $189)) {
-                                  $188[$189] = st[$189];
+                          var $207 = {};
+                          for (var $208 in st) {
+                              if ({}.hasOwnProperty.call(st, $208)) {
+                                  $207[$208] = st[$208];
                               };
                           };
-                          $188.formulaState = $$eval(new CorrectFormula(st.formulaState.value0));
-                          return $188;
+                          $207.formulaState = $$eval(new CorrectFormula(st.formulaState.value0));
+                          return $207;
                       };
                       if (st.formulaState instanceof OneMoreFormula) {
                           return st;
                       };
                       if (st.formulaState instanceof PeriodAtTheEnd) {
-                          var $194 = {};
-                          for (var $195 in st) {
-                              if ({}.hasOwnProperty.call(st, $195)) {
-                                  $194[$195] = st[$195];
+                          var $213 = {};
+                          for (var $214 in st) {
+                              if ({}.hasOwnProperty.call(st, $214)) {
+                                  $213[$214] = st[$214];
                               };
                           };
-                          $194.formulaState = new CorrectFormula(st.formulaState.value0);
-                          return $194;
+                          $213.formulaState = new CorrectFormula(st.formulaState.value0);
+                          return $213;
                       };
-                      throw new Error("Failed pattern match at Main (line 357, column 14 - line 360, column 62): " + [ st.formulaState.constructor.name ]);
+                      throw new Error("Failed pattern match at Main (line 329, column 14 - line 332, column 62): " + [ st.formulaState.constructor.name ]);
                   };
                   if (v.value0 instanceof AC) {
-                      var $198 = {};
-                      for (var $199 in st) {
-                          if ({}.hasOwnProperty.call(st, $199)) {
-                              $198[$199] = st[$199];
+                      var $217 = {};
+                      for (var $218 in st) {
+                          if ({}.hasOwnProperty.call(st, $218)) {
+                              $217[$218] = st[$218];
                           };
                       };
-                      $198.formulaState = new CorrectFormula(InitialTerm.value);
-                      return $198;
+                      $217.formulaState = new CorrectFormula(InitialTerm.value);
+                      return $217;
                   };
                   if (v.value0 instanceof Period) {
                       if (st.formulaState instanceof CorrectFormula) {
-                          if (st.formulaState.value0 instanceof IntNumeral) {
-                              var $203 = {};
-                              for (var $204 in st) {
-                                  if ({}.hasOwnProperty.call(st, $204)) {
-                                      $203[$204] = st[$204];
+                          if (st.formulaState.value0 instanceof InitialTerm) {
+                              var $222 = {};
+                              for (var $223 in st) {
+                                  if ({}.hasOwnProperty.call(st, $223)) {
+                                      $222[$223] = st[$223];
                                   };
                               };
-                              $203.formulaState = new PeriodAtTheEnd(st.formulaState.value0);
-                              return $203;
+                              $222.formulaState = PeriodAtTheEnd.create(new IntNumeral("0"));
+                              return $222;
+                          };
+                          if (st.formulaState.value0 instanceof IntNumeral) {
+                              var $225 = {};
+                              for (var $226 in st) {
+                                  if ({}.hasOwnProperty.call(st, $226)) {
+                                      $225[$226] = st[$226];
+                                  };
+                              };
+                              $225.formulaState = new PeriodAtTheEnd(st.formulaState.value0);
+                              return $225;
+                          };
+                          if (st.formulaState.value0 instanceof Operator) {
+                              var $229 = isIncludingNumberNumeral(st.formulaState.value0.value2);
+                              if ($229) {
+                                  return st;
+                              };
+                              var $230 = {};
+                              for (var $231 in st) {
+                                  if ({}.hasOwnProperty.call(st, $231)) {
+                                      $230[$231] = st[$231];
+                                  };
+                              };
+                              $230.formulaState = new PeriodAtTheEnd(st.formulaState.value0);
+                              return $230;
                           };
                           return st;
                       };
@@ -13294,47 +13351,57 @@ var PS = {};
                           return st;
                       };
                       if (st.formulaState instanceof PeriodAtTheEnd) {
-                          var $210 = {};
-                          for (var $211 in st) {
-                              if ({}.hasOwnProperty.call(st, $211)) {
-                                  $210[$211] = st[$211];
+                          var $239 = {};
+                          for (var $240 in st) {
+                              if ({}.hasOwnProperty.call(st, $240)) {
+                                  $239[$240] = st[$240];
                               };
                           };
-                          $210.formulaState = new CorrectFormula(st.formulaState.value0);
-                          return $210;
+                          $239.formulaState = new CorrectFormula(st.formulaState.value0);
+                          return $239;
                       };
-                      throw new Error("Failed pattern match at Main (line 362, column 15 - line 367, column 62): " + [ st.formulaState.constructor.name ]);
+                      throw new Error("Failed pattern match at Main (line 334, column 15 - line 341, column 62): " + [ st.formulaState.constructor.name ]);
                   };
                   if (v.value0 instanceof C) {
                       if (st.formulaState instanceof CorrectFormula) {
                           if (st.formulaState.value0 instanceof Operator) {
-                              var $216 = {};
-                              for (var $217 in st) {
-                                  if ({}.hasOwnProperty.call(st, $217)) {
-                                      $216[$217] = st[$217];
+                              var $245 = {};
+                              for (var $246 in st) {
+                                  if ({}.hasOwnProperty.call(st, $246)) {
+                                      $245[$246] = st[$246];
                                   };
                               };
-                              $216.formulaState = CorrectFormula.create(new Operator(st.formulaState.value0.value0, st.formulaState.value0.value1, InitialTerm.value));
-                              return $216;
+                              $245.formulaState = CorrectFormula.create(new Operator(st.formulaState.value0.value0, st.formulaState.value0.value1, InitialTerm.value));
+                              return $245;
                           };
-                          var $222 = {};
-                          for (var $223 in st) {
-                              if ({}.hasOwnProperty.call(st, $223)) {
-                                  $222[$223] = st[$223];
+                          var $251 = {};
+                          for (var $252 in st) {
+                              if ({}.hasOwnProperty.call(st, $252)) {
+                                  $251[$252] = st[$252];
                               };
                           };
-                          $222.formulaState = new CorrectFormula(InitialTerm.value);
-                          return $222;
+                          $251.formulaState = new CorrectFormula(InitialTerm.value);
+                          return $251;
+                      };
+                      if (st.formulaState instanceof PeriodAtTheEnd) {
+                          var $255 = {};
+                          for (var $256 in st) {
+                              if ({}.hasOwnProperty.call(st, $256)) {
+                                  $255[$256] = st[$256];
+                              };
+                          };
+                          $255.formulaState = new CorrectFormula(st.formulaState.value0);
+                          return $255;
                       };
                       return st;
                   };
                   if (v.value0 instanceof Substitute) {
                       return st;
                   };
-                  throw new Error("Failed pattern match at Main (line 356, column 28 - line 373, column 21): " + [ v.value0.constructor.name ]);
+                  throw new Error("Failed pattern match at Main (line 328, column 28 - line 348, column 21): " + [ v.value0.constructor.name ]);
               });
           };
-          throw new Error("Failed pattern match at Main (line 337, column 17 - line 373, column 21): " + [ v.constructor.name ]);
+          throw new Error("Failed pattern match at Main (line 306, column 17 - line 348, column 21): " + [ v.constructor.name ]);
       };
   };
   var component = function (dictMonadAff) {
@@ -13395,6 +13462,8 @@ var PS = {};
   exports["allNumberNumeralify"] = allNumberNumeralify;
   exports["eval"] = $$eval;
   exports["appendOperator"] = appendOperator;
+  exports["appendPeriod"] = appendPeriod;
+  exports["intNumeralToNumberNumeral"] = intNumeralToNumberNumeral;
   exports["handleAction"] = handleAction;
   exports["showActNum"] = showActNum;
   exports["eqActNum"] = eqActNum;

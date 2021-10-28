@@ -23,7 +23,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.VDom.Driver (runUI)
 import Parser (exprInt, exprNumber, includePeriod)
-import Prelude (class Eq, class Show, Unit, bind, discard, show, unit, ($), (&&), (-), (<>), (==), (||))
+import Prelude (class Eq, class Show, Unit, bind, discard, show, unit, ($), (&&), (-), (<>), (==), (||),not)
 import StyleSheet (expo)
 import Text.Parsing.Parser (runParser)
 import Text.Parsing.Parser.Expr (Operator)
@@ -178,9 +178,9 @@ render st =
                         [
                           HH.text $ let fm = st.formulaState
                                         --ni = st.newInputs
-                                    in if (deconst fm == InitialTerm) || (deconst fm == IntNumeral "0")
-                                        then "0"
-                                        else case st.formulaState of
+                                    -- in if (deconst fm == InitialTerm) || (deconst fm == IntNumeral "0")
+                                    --     then "0"
+                                    in      case st.formulaState of
                                               CorrectFormula x   -> evalFormula x
                                               OneMoreFormula f n -> case f n of
                                                 Operator x y z -> evalFormula y <> show x
@@ -291,6 +291,12 @@ appendOperator (IntNumeral w) xs = IntNumeral $ w <> xs
 appendOperator (NumberNumeral w) xs = NumberNumeral $ w <> xs
 appendOperator (Operator x y z) xs = Operator x y (appendOperator z xs)
 
+appendPeriod :: Formula String -> Formula String
+appendPeriod t = appendOperator t "."
+
+intNumeralToNumberNumeral :: Formula String -> Formula String
+intNumeralToNumberNumeral (IntNumeral x) = NumberNumeral x
+intNumeralToNumberNumeral t = t
 
 -- 電卓のとりうる状況からオートマトンを設計し、それをhandleActionに翻訳する
 -- なんと、handleActionをよく見れば、Actionを引数に取る関数である。
@@ -305,17 +311,20 @@ handleAction  = case _ of
           InitialTerm -> if x == Zero then st else st{formulaState = CorrectFormula (IntNumeral $ show x)}
           IntNumeral n -> st{formulaState = CorrectFormula $ IntNumeral $ n <> show x}
           NumberNumeral n -> st{formulaState= CorrectFormula $ NumberNumeral $ n <> show x}
-          Operator p q r -> st{formulaState = CorrectFormula $ appendOperator t (show x)}
+          Operator p q r -> case r of 
+            InitialTerm -> if show x == "0" then st else st{formulaState = CorrectFormula $ Operator p q (IntNumeral $ show x)}
+            _ -> st{formulaState = CorrectFormula $ appendOperator t (show x)}
       OneMoreFormula f t ->
         st{formulaState = CorrectFormula $ f $ (IntNumeral $ show x)}
       PeriodAtTheEnd t ->
         case t of 
           IntNumeral n -> st{formulaState = CorrectFormula $ NumberNumeral $ n <> "." <> show x}
+          Operator p q r -> if isIncludingNumberNumeral r then st else st{formulaState = CorrectFormula $ intNumeralToNumberNumeral $ appendOperator t $ "." <> show x}
           _ -> st
   AO x -> H.modify_ \st -> case st.formulaState of
-    CorrectFormula t   -> st{ formulaState = OneMoreFormula (Operator x t) t}
-    OneMoreFormula f t -> st{formulaState = OneMoreFormula (Operator x t) t}
-    PeriodAtTheEnd n -> st{formulaState = OneMoreFormula (Operator x n) n}
+    CorrectFormula t    -> st{ formulaState = OneMoreFormula (Operator x t) t}
+    OneMoreFormula f t  -> st{formulaState = OneMoreFormula (Operator x t) t}
+    PeriodAtTheEnd n    -> st{formulaState = OneMoreFormula (Operator x n) n}
   AS x -> H.modify_ \st -> case x of
     Equal -> case st.formulaState of
       CorrectFormula t -> st{formulaState = eval $ CorrectFormula t}
@@ -324,7 +333,9 @@ handleAction  = case _ of
     AC -> st{formulaState = CorrectFormula InitialTerm}
     Period -> case st.formulaState of
       CorrectFormula t -> case t of
-        IntNumeral _ -> st{formulaState = PeriodAtTheEnd t}
+        InitialTerm    -> st{formulaState = PeriodAtTheEnd $ IntNumeral "0"}
+        IntNumeral _   -> st{formulaState = PeriodAtTheEnd t}
+        Operator _ _ r -> if isIncludingNumberNumeral r then st else st{formulaState = PeriodAtTheEnd t}
         _ -> st
       OneMoreFormula f t -> st -- fには意味的にOperatorしか入らないのでこれで良い
       PeriodAtTheEnd t -> st{formulaState = CorrectFormula t}
@@ -332,6 +343,7 @@ handleAction  = case _ of
       CorrectFormula t -> case t of
         Operator f t1 t2 -> st{formulaState = CorrectFormula $ Operator f t1 InitialTerm}
         _ -> st{formulaState = CorrectFormula InitialTerm}
+      PeriodAtTheEnd t -> st{formulaState = CorrectFormula t}
       _ -> st
     Substitute -> st
 
